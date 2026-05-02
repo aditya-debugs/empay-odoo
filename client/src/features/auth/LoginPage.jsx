@@ -4,7 +4,6 @@ import { Mail, Lock } from 'lucide-react';
 import { Button, Input } from '../ui';
 import AuthLayout from '../../app/layouts/AuthLayout';
 import { useAuth } from './AuthContext';
-import authService from './authService';
 import { dashboardPathByRole } from '../../app/navigation';
 
 export default function LoginPage() {
@@ -19,15 +18,10 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [adminExists, setAdminExists] = useState(true);
 
   useEffect(() => {
     if (user) navigate(dashboardPathByRole[user.role] || '/', { replace: true });
   }, [user, navigate]);
-
-  useEffect(() => {
-    authService.adminExists().then(({ exists }) => setAdminExists(exists)).catch(() => { });
-  }, []);
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -49,14 +43,12 @@ export default function LoginPage() {
       title="Welcome back"
       subtitle="Sign in to your EmPay account"
       footer={
-        !adminExists ? (
-          <>
-            No admin yet?{' '}
-            <Link to="/admin/signup" className="font-medium text-white underline-offset-4 hover:underline">
-              Create the first admin
-            </Link>
-          </>
-        ) : null
+        <>
+          First time setting up?{' '}
+          <Link to="/admin/signup" className="font-medium text-white underline-offset-4 hover:underline">
+            Create the first admin
+          </Link>
+        </>
       }
     >
       <form className="flex flex-col gap-4" onSubmit={onSubmit}>
