@@ -1,17 +1,21 @@
 const { Router } = require('express');
-const { requireAuth, requireRole } = require('../../../middleware/auth');
 const ctrl = require('./users.controller');
+const { requireAuth, requireRole } = require('../../../middleware/auth');
+const { validate } = require('../../../middleware/validate');
+const { createUserSchema, changeRoleSchema } = require('./users.validation');
 
 const router = Router();
 
-// POST / — Create user (admin creates HR/Payroll/Employee) [ADMIN]
-router.post('/', requireAuth, requireRole('ADMIN'), ctrl.create);
+// All routes admin-only
+router.use(requireAuth, requireRole('ADMIN'));
 
-// GET / — List users with filters [ADMIN]
-router.get('/', requireAuth, requireRole('ADMIN'), ctrl.list);
-
-// TODO — Implement remaining endpoints as needed
-// GET /:id — Get user [ADMIN]
-// ...
+router.post('/',                       validate(createUserSchema), ctrl.create);
+router.get('/',                                                    ctrl.list);
+router.get('/:id',                                                 ctrl.get);
+router.patch('/:id/change-role',       validate(changeRoleSchema), ctrl.changeRole);
+router.patch('/:id/deactivate',                                    ctrl.deactivate);
+router.patch('/:id/activate',                                      ctrl.activate);
+router.patch('/:id/reset-password',                                ctrl.resetPassword);
+router.delete('/:id',                                              ctrl.remove);
 
 module.exports = router;

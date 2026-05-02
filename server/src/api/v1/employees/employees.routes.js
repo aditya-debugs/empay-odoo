@@ -4,16 +4,18 @@ const { requireAuth } = require('../../../middleware/auth');
 
 const router = Router();
 
-// GET / — List employees with search/filter
-router.get('/', requireAuth, ctrl.listEmployees);
+router.use(requireAuth);
 
-// GET /:id — Get employee profile
-router.get('/:id', requireAuth, ctrl.getEmployee);
+// Self-service routes — must come BEFORE /:id parametric routes so that
+// "profile" / "bank-details" don't get parsed as an :id.
+router.patch('/profile',      ctrl.updateProfile);
+router.patch('/bank-details', ctrl.updateBankDetails);
 
-// PATCH /profile — Update own profile
-router.patch('/profile', requireAuth, ctrl.updateProfile);
+// Directory routes
+router.get('/',     ctrl.list);
+router.get('/:id',  ctrl.get);
 
-// PATCH /bank-details — Update own bank details
-router.patch('/bank-details', requireAuth, ctrl.updateBankDetails);
+// TODO (next iteration): POST /, PATCH /:id, POST /:id/avatar, POST /:id/send-credentials
+// HR-officer module owns admin-side employee creation; admin uses /users for creation.
 
 module.exports = router;

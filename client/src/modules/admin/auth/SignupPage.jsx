@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, User as UserIcon, Building2, Phone } from 'lucide-react';
 import { Button, Input } from '../../../features/ui';
@@ -20,18 +20,9 @@ export default function SignupPage() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [checking, setChecking] = useState(true);
-  const [adminAlreadyExists, setAdminAlreadyExists] = useState(false);
 
-  // Check whether an admin already exists. We don't redirect — we render
-  // an explanation card so the routes stay reachable in both directions.
-  useEffect(() => {
-    authService
-      .adminExists()
-      .then(({ exists }) => setAdminAlreadyExists(exists))
-      .catch(() => {})
-      .finally(() => setChecking(false));
-  }, []);
+  // First-admin lock removed — anyone can register an admin via this page.
+  // The email-uniqueness check on the backend prevents duplicates.
 
   function update(field) {
     return (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
@@ -64,35 +55,6 @@ export default function SignupPage() {
     } finally {
       setSubmitting(false);
     }
-  }
-
-  if (checking) return null;
-
-  // Friendly state when an admin is already configured. Not a redirect —
-  // user can navigate back to /login via the CTA.
-  if (adminAlreadyExists) {
-    return (
-      <AuthLayout
-        title="Workspace already set up"
-        subtitle="An administrator account exists for this organisation."
-        footer={
-          <>
-            Need to invite teammates? Sign in as the admin and create them from inside the app.
-          </>
-        }
-      >
-        <p className="text-sm text-ink-muted">
-          Self-signup is locked after the first admin account is created. New users (HR, Payroll, Employees) are added by an administrator from the dashboard.
-        </p>
-        <Button
-          size="lg"
-          className="mt-6 w-full"
-          onClick={() => navigate('/login', { replace: true })}
-        >
-          Go to Sign In
-        </Button>
-      </AuthLayout>
-    );
   }
 
   return (

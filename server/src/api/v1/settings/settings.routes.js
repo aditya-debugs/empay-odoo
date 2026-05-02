@@ -1,31 +1,14 @@
 const { Router } = require('express');
+const ctrl = require('./settings.controller');
 const { requireAuth, requireRole } = require('../../../middleware/auth');
+const { validate } = require('../../../middleware/validate');
+const { updateSettingsSchema } = require('./settings.validation');
 
 const router = Router();
 
-// TODO — Implement controllers in settings.controller.js / .service.js,
-//        validation in settings.validation.js, then replace `todo` below.
+router.use(requireAuth, requireRole('ADMIN'));
 
-// GET / — Get settings [ADMIN]
-router.get('/', requireAuth, requireRole('ADMIN'), todo);
-
-// PATCH /company — Update company settings [ADMIN]
-router.patch('/company', requireAuth, requireRole('ADMIN'), todo);
-
-// PATCH /attendance — Update attendance settings [ADMIN]
-router.patch('/attendance', requireAuth, requireRole('ADMIN'), todo);
-
-// PATCH /payroll — Update payroll settings [ADMIN]
-router.patch('/payroll', requireAuth, requireRole('ADMIN'), todo);
-
-// PATCH /leave — Update leave settings [ADMIN]
-router.patch('/leave', requireAuth, requireRole('ADMIN'), todo);
-
-// POST /holidays — Create/update holiday [ADMIN]
-router.post('/holidays', requireAuth, requireRole('ADMIN'), todo);
-
-function todo(_req, res) {
-  res.status(501).json({ message: 'Not implemented yet' });
-}
+router.get('/',  ctrl.get);
+router.patch('/', validate(updateSettingsSchema), ctrl.update);
 
 module.exports = router;

@@ -1,28 +1,20 @@
 const { Router } = require('express');
+const ctrl = require('./payroll.controller');
 const { requireAuth, requireRole } = require('../../../middleware/auth');
+const { validate } = require('../../../middleware/validate');
+const { processSchema } = require('./payroll.validation');
 
 const router = Router();
 
-// TODO — Implement controllers in payroll.controller.js / .service.js,
-//        validation in payroll.validation.js, then replace `todo` below.
+router.use(requireAuth, requireRole('ADMIN', 'PAYROLL_OFFICER'));
 
-// POST /process — Process payroll for a month [PAYROLL_OFFICER]
-router.post('/process', requireAuth, requireRole('PAYROLL_OFFICER'), todo);
+// Preview accepts both GET (no adjustments) and POST (with adjustments) for convenience.
+router.get('/preview',           ctrl.preview);
+router.post('/preview',          ctrl.preview);
 
-// GET /preview — Preview payroll [PAYROLL_OFFICER, ADMIN]
-router.get('/preview', requireAuth, requireRole('PAYROLL_OFFICER', 'ADMIN'), todo);
+router.post('/process',          validate(processSchema), ctrl.process);
 
-// GET /:month — View processed payroll [PAYROLL_OFFICER, ADMIN]
-router.get('/:month', requireAuth, requireRole('PAYROLL_OFFICER', 'ADMIN'), todo);
-
-// PATCH /:id/reopen — Reopen processed payroll [ADMIN]
-router.patch('/:id/reopen', requireAuth, requireRole('ADMIN'), todo);
-
-// PATCH /:id/bonus — Adjust bonus [ADMIN]
-router.patch('/:id/bonus', requireAuth, requireRole('ADMIN'), todo);
-
-function todo(_req, res) {
-  res.status(501).json({ message: 'Not implemented yet' });
-}
+router.get('/runs',              ctrl.listRuns);
+router.get('/:year/:month',      ctrl.getRun);
 
 module.exports = router;

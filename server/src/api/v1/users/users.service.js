@@ -1,71 +1,140 @@
 const prisma = require('../../../config/prisma');
 const { hashPassword } = require('../../../utils/password');
+const { generateLoginId, generateTempPassword } = require('../../../utils/loginId');
 
-async function createUser(creatorId, data) {
-  const {
-    email, password, name, role,
-    firstName, lastName, phone, department, position,
-    joinDate, dob, basicSalary,
-    bankName, bankAccountNo, bankIfsc
-  } = data;
+// Flatten User + (optional) Employee into a single shape the frontend can use uniformly.
+function shapeUser(u) {
+  if (!u) return null;
+  const e = u.employee;
+  const [first, ...rest] = (u.name || '').split(' ');
+  return {
+    id: u.id,
+    email: u.email,
+    loginId: u.loginId,
+    name: u.name,
+    role: u.role,
+    companyName: u.companyName,
+    isActive: u.isActive,
+    mustChangePassword: u.mustChangePassword,
+    createdAt: u.createdAt,
+    updatedAt: u.updatedAt,
+    // Convenience fields — flatten employee profile when present
+    firstName:      e?.firstName      ?? first ?? '',
+    lastName:       e?.lastName       ?? rest.join(' ') ?? '',
+    gender:         e?.gender         ?? null,
+    dob:            e?.dob            ?? null,
+    personalEmail:  e?.personalEmail  ?? null,
+    personalPhone:  e?.personalPhone  ?? null,
+    department:     e?.department     ?? (u.role === 'ADMIN' ? '—' : null),
+    position:       e?.position       ?? (u.role === 'ADMIN' ? 'Administrator' : null),
+    joinDate:       e?.joinDate       ?? u.createdAt,
+    employmentType: e?.employmentType ?? null,
+    employeeStatus: e?.status         ?? null,
+    avatarUrl:      e?.avatarUrl      ?? null,
+    basicSalary:      e?.basicSalary      ?? null,
+    hra:              e?.hra              ?? null,
+    conveyance:       e?.conveyance       ?? null,
+    specialAllowance: e?.specialAllowance ?? null,
+    otherAllowance:   e?.otherAllowance   ?? null,
+    pfEnabled:        e?.pfEnabled        ?? null,
+    pfPercent:        e?.pfPercent        ?? null,
+    professionalTax:  e?.professionalTax  ?? null,
+    bankName:      e?.bankName      ?? null,
+    bankBranch:    e?.bankBranch    ?? null,
+    bankAccountNo: e?.bankAccountNo ?? null,
+    bankIfsc:      e?.bankIfsc      ?? null,
+    employeeId:    e?.id            ?? null,
+  };
+}
 
-  // Check if email already exists
-  const existing = await prisma.user.findUnique({ where: { email } });
+async function listUsers({ role, excludeAdmin } = {}) {
+  const where = {};
+  if (role) where.role = role;
+  if (excludeAdmin) where.role = { not: 'ADMIN' };
+
+  const users = await prisma.user.findMany({
+    where,
+    include: { employee: true },
+    orderBy: { createdAt: 'desc' },
+  });
+  return users.map(shapeUser);
+}
+
+async function getUser(id) {
+  const user = await prisma.user.findUnique({
+    where: { id },
+    include: { employee: true },
+  });
+  return shapeUser(user);
+}
+
+async function createUser(input, creatorId) {
+  // Pull company name from the creator (the admin doing the create)
+  const creator = await prisma.user.findUnique({ where: { id: creatorId } });
+  const companyName = creator?.companyName || 'EmPay';
+
+  // Reject duplicate work email up-front for a clean 409
+  const existing = await prisma.user.findUnique({ where: { email: input.workEmail } });
   if (existing) {
-    const err = new Error('Email already in use');
+    const err = new Error('A user with that work email already exists');
     err.status = 409;
     throw err;
   }
 
-  // Get company name from creator
-  const creator = await prisma.user.findUnique({ where: { id: creatorId } });
-  const companyName = creator ? creator.companyName : 'EmPay';
+  // Generate auth artifacts
+  const loginId = await generateLoginId({
+    companyName,
+    firstName: input.firstName,
+    lastName: input.lastName,
+    joinDate: input.joinDate,
+  });
+  const tempPassword = generateTempPassword();
+  const passwordHash = await hashPassword(tempPassword);
 
-  // Generate Login ID: [Prefix][Initials][Year][Serial]
-  // Prefix: First 2 letters of company
-  // Initials: First letter of First Name and Last Name
-  // Year: Last 2 digits of join year
-  // Serial: Count of employees + 1
-  const prefix = (companyName || 'EP').substring(0, 2).toUpperCase();
-  const initials = ((firstName || 'E')[0] + (lastName || 'X')[0]).toUpperCase();
-  const year = new Date(joinDate || new Date()).getFullYear().toString().slice(-2);
-  const count = await prisma.employee.count();
-  const serial = (count + 1).toString().padStart(4, '0');
-  const loginId = `${prefix}${initials}${year}${serial}`;
-
-  const passwordHash = await hashPassword(password);
-
-  // Create User and Employee in a transaction
-  return prisma.$transaction(async (tx) => {
-    const user = await tx.user.create({
+  // Create User + Employee in one transaction
+  const created = await prisma.$transaction(async (tx) => {
+    const newUser = await tx.user.create({
       data: {
-        email,
+        email: input.workEmail,
         loginId,
         passwordHash,
-        name: name || `${firstName} ${lastName}`,
-        role: role || 'EMPLOYEE',
-        companyName: companyName,
-        phone,
+        name: `${input.firstName} ${input.lastName}`.trim(),
+        role: input.role,
+        companyName,
+        phone: input.personalPhone || null,
         mustChangePassword: true,
-      }
+        isActive: true,
+      },
     });
 
     let employee = null;
     if (user.role !== 'ADMIN') {
       employee = await tx.employee.create({
         data: {
-          userId: user.id,
-          firstName,
-          lastName,
-          phone,
-          department,
-          position,
-          joinDate: new Date(joinDate || new Date()),
-          dob: dob ? new Date(dob) : null,
-          basicSalary: basicSalary || 0,
-          bankName,
-          bankAccountNo,
-          bankIfsc,
+        userId: newUser.id,
+        firstName: input.firstName,
+        lastName: input.lastName,
+        gender: input.gender || null,
+        dob: input.dob ? new Date(input.dob) : null,
+        personalEmail: input.personalEmail || null,
+        personalPhone: input.personalPhone || null,
+        phone: input.personalPhone || null,
+        department: input.department,
+        position: input.position,
+        joinDate: new Date(input.joinDate),
+        employmentType: input.employmentType || 'FULL_TIME',
+        basicSalary: input.basicSalary || 0,
+        hra: input.hra ?? null,
+        conveyance: input.conveyance ?? null,
+        specialAllowance: input.specialAllowance ?? null,
+        otherAllowance: input.otherAllowance ?? null,
+        pfEnabled: input.pfEnabled ?? true,
+        pfPercent: input.pfPercent ?? null,
+        professionalTax: input.professionalTax ?? null,
+        bankName: input.bankName || null,
+        bankBranch: input.bankBranch || null,
+        bankAccountNo: input.bankAccountNo || null,
+        bankIfsc: input.bankIfsc || null,
         }
       });
       // Add default leave allocations
@@ -88,28 +157,52 @@ async function createUser(creatorId, data) {
       ));
     }
 
-    return { user, employee };
+    return tx.user.findUnique({
+      where: { id: newUser.id },
+      include: { employee: true },
+    });
   });
+
+  return {
+    user: shapeUser(created),
+    loginId,
+    tempPassword, // returned ONCE — admin shares this with the new employee
+  };
 }
 
-async function listUsers(filters = {}) {
-  const { role, isActive } = filters;
-  return prisma.user.findMany({
-    where: {
-      role: role ? role : undefined,
-      isActive: isActive !== undefined ? isActive : undefined,
-    },
-    select: {
-      id: true,
-      email: true,
-      loginId: true,
-      name: true,
-      role: true,
-      isActive: true,
-      createdAt: true,
-    },
-    orderBy: { createdAt: 'desc' }
+async function changeRole(id, role) {
+  const updated = await prisma.user.update({
+    where: { id },
+    data: { role },
+    include: { employee: true },
   });
+  return shapeUser(updated);
 }
 
-module.exports = { createUser, listUsers };
+async function setActive(id, isActive) {
+  const updated = await prisma.user.update({
+    where: { id },
+    data: { isActive },
+    include: { employee: true },
+  });
+  return shapeUser(updated);
+}
+
+async function deleteUser(id) {
+  // Cascade deletes Employee via the schema relation
+  await prisma.user.delete({ where: { id } });
+}
+
+async function resetPassword(id) {
+  const tempPassword = generateTempPassword();
+  const passwordHash = await hashPassword(tempPassword);
+  await prisma.user.update({
+    where: { id },
+    data: { passwordHash, mustChangePassword: true },
+  });
+  return { tempPassword };
+}
+
+module.exports = {
+  listUsers, getUser, createUser, changeRole, setActive, deleteUser, resetPassword,
+};

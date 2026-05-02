@@ -1,6 +1,6 @@
 const service = require('./employees.service');
 
-exports.listEmployees = async (req, res, next) => {
+exports.list = async (_req, res, next) => {
   try {
     const { search = '', role, limit = 50, offset = 0 } = req.query;
     const result = await service.listEmployees({ 
@@ -13,13 +13,16 @@ exports.listEmployees = async (req, res, next) => {
   } catch (e) { next(e); }
 };
 
-exports.getEmployee = async (req, res, next) => {
+exports.get = async (req, res, next) => {
   try {
-    const employee = await service.getEmployeeProfile(req.params.id);
+    const employee = await service.getEmployee(req.params.id);
+    if (!employee) return res.status(404).json({ message: 'Employee not found' });
     res.json({ employee });
   } catch (e) { next(e); }
 };
 
+// Self-service — the authenticated user updates their own profile / bank details.
+// Used by the Employee module.
 exports.updateProfile = async (req, res, next) => {
   try {
     const employee = await service.updateOwnProfile(req.user.id, req.body);
@@ -33,6 +36,3 @@ exports.updateBankDetails = async (req, res, next) => {
     res.json({ employee });
   } catch (e) { next(e); }
 };
-
-module.exports = exports;
-

@@ -4,6 +4,7 @@ const cors = require('cors');
 const env = require('./config/env');
 const prisma = require('./config/prisma');
 const apiV1 = require('./api/v1');
+const { ensureBootstrapAdmin } = require('./utils/bootstrap');
 
 const app = express();
 
@@ -23,8 +24,10 @@ app.use((err, _req, res, _next) => {
   res.status(status).json({ message: err.message || 'Internal server error' });
 });
 
-const server = app.listen(env.port, () => {
+const server = app.listen(env.port, async () => {
   console.log(`[empay] server listening on http://localhost:${env.port} (${env.nodeEnv})`);
+  // Self-heal: re-create a default admin if the DB has been wiped.
+  await ensureBootstrapAdmin();
 });
 
 const shutdown = async (signal) => {

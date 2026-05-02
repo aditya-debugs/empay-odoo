@@ -5,6 +5,10 @@ import { Avatar, Button } from '../../../features/ui';
 import { DEPARTMENTS, ROLES } from '../../../features/employees/employeeMocks';
 import api from '../../../services/api';
 
+import { employeesService } from '../../../services/usersService';
+
+const NON_ADMIN_ROLES = ALL_ROLES.filter((r) => r.value !== 'ADMIN');
+
 function StatusIndicator({ status }) {
   if (status === 'ON_LEAVE') {
     return (
@@ -13,12 +17,20 @@ function StatusIndicator({ status }) {
       </span>
     );
   }
+  if (!status) {
+    // No attendance data yet — show a neutral indicator
+    return (
+      <span title="No attendance data" className="flex h-6 w-6 items-center justify-center rounded-full bg-surface-muted">
+        <span className="h-2 w-2 rounded-full bg-ink-soft/40" />
+      </span>
+    );
+  }
   const dot =
-    status === 'PRESENT' ? 'bg-success-500' :
+    status === 'PRESENT'  ? 'bg-success-500' :
     status === 'HALF_DAY' ? 'bg-warning-500' :
-                            'bg-warning-500';  // ABSENT — yellow per mockup
+                            'bg-warning-500';
   const label =
-    status === 'PRESENT' ? 'Present' :
+    status === 'PRESENT'  ? 'Present' :
     status === 'HALF_DAY' ? 'Half-day' : 'Absent';
   return (
     <span title={label} className="flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-border">
@@ -100,9 +112,13 @@ export default function EmployeesPage() {
           className="h-10 rounded-full border border-border bg-white px-3 text-sm text-ink focus:border-brand-500 focus:outline-none"
         >
           <option value="">All roles</option>
-          {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+          {NON_ADMIN_ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
         </select>
       </div>
+
+      {error && (
+        <div className="mt-4 rounded-xl bg-danger-50 px-3 py-2 text-sm text-danger-700">{error}</div>
+      )}
 
       {/* Grid */}
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -118,17 +134,17 @@ export default function EmployeesPage() {
             </div>
             <Avatar name={`${e.firstName} ${e.lastName}`} size="lg" className="h-16 w-16 text-base" />
             <div className="mt-3 text-sm font-semibold text-ink">{e.firstName} {e.lastName}</div>
-            <div className="mt-0.5 text-xs text-ink-muted">{e.position}</div>
+            <div className="mt-0.5 text-xs text-ink-muted">{e.position || '—'}</div>
             <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-surface-muted px-2 py-0.5 text-[11px] text-ink-muted">
-              {e.department}
+              {e.department || '—'}
             </div>
             <div className="mt-2 text-[10px] uppercase tracking-wider text-ink-soft">{e.loginId}</div>
           </button>
         ))}
 
-        {filtered.length === 0 && (
+        {!loading && filtered.length === 0 && !error && (
           <div className="col-span-full flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-white py-16 text-center">
-            <p className="text-sm text-ink-muted">No employees match your filters.</p>
+            <p className="text-sm text-ink-muted">No employees yet — create one with the "New Employee" button above.</p>
           </div>
         )}
       </div>

@@ -22,11 +22,8 @@ async function adminExists() {
 }
 
 async function registerAdmin({ email, password, name, companyName, phone }) {
-  if (await adminExists()) {
-    const err = new Error('An admin already exists. Self-signup is locked.');
-    err.status = 409;
-    throw err;
-  }
+  // First-admin lock removed per project owner's request — multiple admins
+  // can be created from the public signup page. Email uniqueness still enforced.
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
     const err = new Error('Email already in use');
