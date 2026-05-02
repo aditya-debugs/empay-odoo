@@ -18,9 +18,9 @@ const hrService = {
     const query = new URLSearchParams(params).toString();
     return api.get(`/attendance?${query}`);
   },
-  getRegularizationQueue: () => api.get('/attendance/regularization/queue'),
+  getRegularizationQueue: () => api.get('/attendance/regularize'),
   updateRegularizationStatus: (id, status) => 
-    api.patch(`/attendance/regularization/${id}`, { status }),
+    api.patch(`/attendance/regularize/${id}`, { status }),
   getEmployeeAttendance: (employeeId) => api.get(`/attendance/employee/${employeeId}`),
   getEmployeeLeaves: (employeeId) => api.get(`/leave/employee/${employeeId}`),
 
@@ -30,6 +30,8 @@ const hrService = {
   getLeaveQueue: () => api.get('/leave/queue'),
   updateLeaveStatus: (id, status, adminNote) => 
     api.patch(`/leave/${id}/status`, { status, adminNote }),
+  getAllocations: () => api.get('/leave/allocation'),
+  allocateLeave: (data) => api.post('/leave/allocation', data),
 };
 
 export default hrService;

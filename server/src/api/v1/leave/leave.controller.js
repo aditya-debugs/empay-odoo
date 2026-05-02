@@ -35,4 +35,18 @@ exports.updateStatus = async (req, res, next) => {
   } catch (e) { next(e); }
 };
 
+exports.allocate = async (req, res, next) => {
+  try {
+    const result = await service.allocateLeave(req.body);
+    res.status(201).json(result);
+  } catch (e) { next(e); }
+};
+
+exports.listAllocations = async (req, res, next) => {
+  try {
+    const result = await service.getAllLeaveAllocations();
+    res.json({ allocations: result });
+  } catch (e) { next(e); }
+};
+
 module.exports = exports;

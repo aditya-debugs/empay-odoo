@@ -46,7 +46,7 @@ export default function HRAttendanceView() {
     try {
       setLoading(true);
       const data = await hrService.getRegularizationQueue();
-      setRegQueue(data);
+      setRegQueue(data.requests || []);
     } catch (err) {
       console.error(err);
     } finally {

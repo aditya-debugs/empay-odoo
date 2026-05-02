@@ -8,29 +8,80 @@ import {
   AlertCircle,
   CheckCircle2
 } from 'lucide-react';
-import { Card, Button, Avatar } from '../../../features/ui';
+import { Card, Button, Avatar, Tabs, Input, Select } from '../../../features/ui';
 import hrService from '../hrService';
 
 export default function HRLeaveQueue() {
+  const [activeTab, setActiveTab] = useState('queue');
   const [leaves, setLeaves] = useState([]);
+  const [allocations, setAllocations] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(null);
 
+  // Allocation form state
+  const [allocForm, setAllocForm] = useState({
+    employeeId: '',
+    type: 'ANNUAL',
+    year: new Date().getFullYear(),
+    totalDays: 0
+  });
+
   useEffect(() => {
-    loadQueue();
-  }, []);
+    if (activeTab === 'queue') {
+      loadQueue();
+    } else {
+      loadAllocations();
+      loadEmployees();
+    }
+  }, [activeTab]);
 
   const loadQueue = async () => {
     setLoading(true);
     try {
       const data = await hrService.getLeaveQueue();
-      // Data might be { leaves: [] } or just []
       setLeaves(data.leaves || data || []);
     } catch (err) {
       setError(err.message || 'Failed to load leave queue');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAllocations = async () => {
+    setLoading(true);
+    try {
+      const data = await hrService.getAllocations();
+      setAllocations(data.allocations || data || []);
+    } catch (err) {
+      setError(err.message || 'Failed to load allocations');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadEmployees = async () => {
+    try {
+      const { records } = await hrService.listEmployees();
+      setEmployees(records || []);
+    } catch (err) {
+      console.error('Failed to load employees', err);
+    }
+  };
+
+  const handleAllocate = async (e) => {
+    e.preventDefault();
+    setSubmitting('allocate');
+    try {
+      await hrService.allocateLeave(allocForm);
+      setAllocForm({ ...allocForm, totalDays: 0 }); // reset days
+      await loadAllocations();
+      alert('Leave allocated successfully!');
+    } catch (err) {
+      alert('Failed to allocate leave: ' + err.message);
+    } finally {
+      setSubmitting(null);
     }
   };
 
@@ -54,16 +105,25 @@ export default function HRLeaveQueue() {
   const pending = leaves.filter(l => l.status === 'PENDING');
   const processed = leaves.filter(l => l.status !== 'PENDING');
 
+  const tabs = [
+    { key: 'queue', label: 'Leave Requests Queue' },
+    { key: 'allocation', label: 'Leave Balances & Allocation' }
+  ];
+
   return (
     <div className="px-8 py-10 space-y-10 min-h-screen bg-[#F8F9FA]">
       <div className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900">Leave Approvals</h1>
-        <p className="text-sm text-gray-500 font-medium">Review and manage employee leave requests</p>
+        <h1 className="text-3xl font-bold tracking-tight text-gray-900">Leave Management</h1>
+        <p className="text-sm text-gray-500 font-medium">Review requests and allocate leave balances</p>
       </div>
+
+      <Tabs tabs={tabs} activeKey={activeTab} onChange={setActiveTab} className="border-gray-200" />
 
       {error && <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">{error}</div>}
 
-      {/* Pending Requests Section */}
+      {activeTab === 'queue' ? (
+        <>
+          {/* Pending Requests Section */}
       <section className="space-y-4">
         <div className="flex items-center gap-2">
           <h2 className="text-lg font-bold text-gray-800">Pending Requests</h2>
@@ -188,6 +248,96 @@ export default function HRLeaveQueue() {
           </div>
         </Card>
       </section>
+      </>
+      ) : (
+        <div className="space-y-8">
+          <Card className="p-6 bg-white border-gray-100 rounded-2xl shadow-sm">
+            <h2 className="text-lg font-bold text-gray-800 mb-4">Allocate Leave Balance</h2>
+            <form onSubmit={handleAllocate} className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+              <div className="md:col-span-2">
+                <Select
+                  label="Employee"
+                  required
+                  value={allocForm.employeeId}
+                  onChange={(e) => setAllocForm({ ...allocForm, employeeId: e.target.value })}
+                  options={[
+                    { value: '', label: 'Select Employee...' },
+                    ...employees.map(emp => ({ value: emp.id, label: emp.user?.name || emp.id }))
+                  ]}
+                />
+              </div>
+              <div>
+                <Select
+                  label="Leave Type"
+                  required
+                  value={allocForm.type}
+                  onChange={(e) => setAllocForm({ ...allocForm, type: e.target.value })}
+                  options={[
+                    { value: 'ANNUAL', label: 'Annual Leave' },
+                    { value: 'SICK', label: 'Sick Leave' },
+                    { value: 'UNPAID', label: 'Unpaid Leave' },
+                    { value: 'MATERNITY', label: 'Maternity/Paternity' }
+                  ]}
+                />
+              </div>
+              <div>
+                <Input
+                  label="Total Days"
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  required
+                  value={allocForm.totalDays}
+                  onChange={(e) => setAllocForm({ ...allocForm, totalDays: parseFloat(e.target.value) })}
+                />
+              </div>
+              <Button type="submit" loading={submitting === 'allocate'} className="bg-[#198754] hover:bg-[#157347] text-white border-none font-bold h-[42px]">
+                Allocate
+              </Button>
+            </form>
+          </Card>
+
+          <Card className="overflow-hidden border-gray-100 shadow-sm bg-white rounded-2xl">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-white border-b border-gray-100">
+                    <th className="px-8 py-5 text-[13px] font-semibold text-gray-500">Employee</th>
+                    <th className="px-8 py-5 text-[13px] font-semibold text-gray-500">Type / Year</th>
+                    <th className="px-8 py-5 text-[13px] font-semibold text-gray-500">Total Allocated</th>
+                    <th className="px-8 py-5 text-[13px] font-semibold text-gray-500">Used Days</th>
+                    <th className="px-8 py-5 text-[13px] font-semibold text-gray-500">Remaining</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {allocations.map((alloc) => {
+                    const remaining = parseFloat(alloc.totalDays) - parseFloat(alloc.usedDays);
+                    return (
+                      <tr key={alloc.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-8 py-5 font-bold text-gray-900">{alloc.employee?.user?.name}</td>
+                        <td className="px-8 py-5">
+                          <span className="font-bold text-gray-700">{alloc.type.replace('_', ' ')}</span>
+                          <span className="text-[11px] text-gray-500 ml-2">({alloc.year})</span>
+                        </td>
+                        <td className="px-8 py-5 font-medium text-gray-600">{alloc.totalDays}</td>
+                        <td className="px-8 py-5 font-medium text-red-500">{alloc.usedDays}</td>
+                        <td className="px-8 py-5 font-bold text-green-600">{remaining}</td>
+                      </tr>
+                    );
+                  })}
+                  {allocations.length === 0 && !loading && (
+                    <tr>
+                      <td colSpan="5" className="px-8 py-20 text-center text-gray-400 italic">
+                        No leave allocations found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
