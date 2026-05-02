@@ -26,3 +26,5 @@ router.get('/regularize', requireAuth, requireRole('ADMIN', 'HR_OFFICER'), ctrl.
 router.patch('/regularize/:id', requireAuth, requireRole('ADMIN', 'HR_OFFICER'), ctrl.reviewRegularization);
 
 module.exports = router;
+
+

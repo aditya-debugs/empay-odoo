@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Card, Button, Input } from '../../../features/ui';
-import { Clock, LogIn, LogOut, AlertCircle, X } from 'lucide-react';
+import { Clock, LogIn, LogOut, AlertCircle, CheckCircle2, MessageSquare } from 'lucide-react';
 import api from '../../../services/api';
 
 function Modal({ isOpen, onClose, title, children }) {
@@ -26,6 +26,10 @@ export default function AttendancePage() {
   const [success, setSuccess] = useState('');
   const [todayStatus, setTodayStatus] = useState(null);
 
+  // Regularization state
+  const [showRegForm, setShowRegForm] = useState(null); // Will hold the record to regularize
+  const [regReason, setRegReason] = useState('');
+
   const [regModalOpen, setRegModalOpen] = useState(false);
   const [regDate, setRegDate] = useState('');
   const [regReason, setRegReason] = useState('');
@@ -40,7 +44,7 @@ export default function AttendancePage() {
     try {
       const data = await api.get('/attendance/me');
       setAttendance(data.records || []);
-      
+
       const today = new Date().toISOString().split('T')[0];
       const todayRecord = data.records?.find(r => r.date.split('T')[0] === today);
       setTodayStatus(todayRecord);
@@ -56,7 +60,7 @@ export default function AttendancePage() {
     setError(''); setSuccess('');
     try {
       const response = await api.post('/attendance/check-in', {});
-      setSuccess('Checked in successfully at ' + new Date().toLocaleTimeString());
+      setSuccess('Checked in successfully!');
       setTodayStatus(response.attendance);
       await loadAttendance();
     } catch (err) {
@@ -71,7 +75,7 @@ export default function AttendancePage() {
     setError(''); setSuccess('');
     try {
       const response = await api.post('/attendance/check-out', {});
-      setSuccess('Checked out successfully at ' + new Date().toLocaleTimeString());
+      setSuccess('Checked out successfully!');
       setTodayStatus(response.attendance);
       await loadAttendance();
     } catch (err) {
@@ -112,33 +116,56 @@ export default function AttendancePage() {
         </Button>
       </div>
 
-      {error && <div className="mt-4 p-3 bg-danger-50 text-danger-700 rounded-lg text-sm">{error}</div>}
-      {success && <div className="mt-4 p-3 bg-success-50 text-success-700 rounded-lg text-sm">{success}</div>}
+      {error && <div className="p-3 bg-danger-500/10 border border-danger-500/50 rounded-xl text-danger-400 text-sm flex items-center gap-2">
+        <AlertCircle className="h-4 w-4" /> {error}
+      </div>}
+      {success && <div className="p-3 bg-success-500/10 border border-success-500/50 rounded-xl text-success-400 text-sm flex items-center gap-2">
+        <CheckCircle2 className="h-4 w-4" /> {success}
+      </div>}
 
-      <Card className="mt-8 p-6 bg-gradient-to-r from-primary-50 to-primary-100">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      {/* Check-in/Out Controls */}
+      <Card className="p-6 bg-gradient-to-br from-blue-600/20 to-indigo-600/20 border-white/10 relative overflow-hidden group">
+        <div className="absolute -right-12 -top-12 opacity-5 group-hover:opacity-10 transition-opacity">
+          <Clock className="h-48 w-48 text-white" />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
           <div>
-            <p className="text-sm text-ink-muted">Status Today</p>
-            <p className="text-lg font-semibold mt-1">
-              {todayStatus?.checkIn ? '✅ Checked In' : '❌ Not Checked In'}
-            </p>
+            <p className="text-xs font-medium text-blue-400 uppercase tracking-wider">Status Today</p>
+            <div className="flex items-center gap-3 mt-2">
+              <div className={`h-3 w-3 rounded-full animate-pulse ${todayStatus?.checkIn ? 'bg-success-500' : 'bg-danger-500'}`} />
+              <p className="text-xl font-bold text-white">
+                {todayStatus?.checkIn ? (todayStatus?.checkOut ? 'Completed' : 'Active') : 'Not Started'}
+              </p>
+            </div>
             {todayStatus?.checkIn && (
-              <p className="text-xs text-ink-muted mt-1">
-                {new Date(todayStatus.checkIn).toLocaleTimeString()}
+              <p className="text-xs text-ink-muted mt-2">
+                Started at {new Date(todayStatus.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </p>
             )}
           </div>
+
           <div>
-            <p className="text-sm text-ink-muted">Hours Worked</p>
-            <p className="text-lg font-semibold mt-1">{todayStatus?.hoursWorked || 0} hrs</p>
+            <p className="text-xs font-medium text-blue-400 uppercase tracking-wider">Time Tracked</p>
+            <p className="text-3xl font-bold text-white mt-1">
+              {todayStatus?.hoursWorked || '0.00'} <span className="text-sm font-normal text-ink-muted">hrs</span>
+            </p>
           </div>
-          <div className="flex items-end gap-2">
-            <Button onClick={handleCheckIn} disabled={!!todayStatus?.checkIn} loading={checking} leftIcon={<LogIn className="h-4 w-4" />} className="flex-1">
-              Check In
-            </Button>
-            <Button onClick={handleCheckOut} disabled={!todayStatus?.checkIn || !!todayStatus?.checkOut} loading={checking} leftIcon={<LogOut className="h-4 w-4" />} className="flex-1" variant={todayStatus?.checkOut ? 'secondary' : 'primary'}>
-              Check Out
-            </Button>
+
+          <div className="flex items-center gap-3">
+            {!todayStatus?.checkIn ? (
+              <Button onClick={handleCheckIn} loading={checking} className="w-full bg-blue-600 hover:bg-blue-500 text-white border-none shadow-lg shadow-blue-500/20">
+                <LogIn className="h-4 w-4 mr-2" /> Check In
+              </Button>
+            ) : !todayStatus?.checkOut ? (
+              <Button onClick={handleCheckOut} loading={checking} className="w-full bg-white text-black hover:bg-white/90 border-none shadow-lg">
+                <LogOut className="h-4 w-4 mr-2" /> Check Out
+              </Button>
+            ) : (
+              <Button disabled className="w-full bg-white/5 text-ink-muted border-white/10">
+                Work Finished
+              </Button>
+            )}
           </div>
         </div>
       </Card>
@@ -169,11 +196,10 @@ export default function AttendancePage() {
                     <td className="py-3 px-4">{record.checkOut ? new Date(record.checkOut).toLocaleTimeString() : '-'}</td>
                     <td className="py-3 px-4">{record.hoursWorked || 0} hrs</td>
                     <td className="py-3 px-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        record.status === 'PRESENT' ? 'bg-success-100 text-success-700' : 
-                        record.status === 'REGULARIZED' ? 'bg-brand-100 text-brand-700' : 
-                        'bg-danger-100 text-danger-700'
-                      }`}>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${record.status === 'PRESENT' ? 'bg-success-100 text-success-700' :
+                          record.status === 'REGULARIZED' ? 'bg-brand-100 text-brand-700' :
+                            'bg-danger-100 text-danger-700'
+                        }`}>
                         {record.status}
                       </span>
                     </td>
@@ -182,17 +208,17 @@ export default function AttendancePage() {
               )}
             </tbody>
           </table>
-        </div>
+        </Card>
       </div>
 
       <Modal isOpen={regModalOpen} onClose={() => setRegModalOpen(false)} title="Request Regularization">
         <form onSubmit={handleRegularize} className="space-y-4">
-          <Input 
-            label="Date of missed attendance" 
-            type="date" 
-            required 
-            value={regDate} 
-            onChange={(e) => setRegDate(e.target.value)} 
+          <Input
+            label="Date of missed attendance"
+            type="date"
+            required
+            value={regDate}
+            onChange={(e) => setRegDate(e.target.value)}
             max={new Date().toISOString().split('T')[0]}
           />
           <div className="flex flex-col gap-1.5">

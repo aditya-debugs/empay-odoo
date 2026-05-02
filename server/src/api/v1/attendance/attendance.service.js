@@ -141,9 +141,9 @@ async function listAllAttendance({ date, search } = {}) {
 
   const records = await prisma.attendance.findMany({
     where,
-    include: { 
-      employee: { 
-        include: { user: { select: { name: true, email: true } } } 
+    include: {
+      employee: {
+        include: { user: { select: { name: true, email: true } } }
       },
       regularization: true
     },

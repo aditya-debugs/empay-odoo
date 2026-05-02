@@ -88,10 +88,11 @@ async function verifyEmail(token) {
 }
 
 async function login({ identifier, password }) {
-  const cleanIdentifier = identifier?.trim();
-  console.log(`Attempting login for: "${cleanIdentifier}" (Password length: ${password?.length})`);
+  const cleanIdentifier = typeof identifier === 'string' ? identifier.trim() : identifier;
+  console.log(`[AUTH] Login attempt for: "${cleanIdentifier}" (Type: ${typeof cleanIdentifier})`);
   
-  const user = await prisma.user.findFirst({
+  // Try case-insensitive search
+  let user = await prisma.user.findFirst({
     where: { 
       OR: [
         { email: { equals: cleanIdentifier, mode: 'insensitive' } }, 
@@ -100,15 +101,22 @@ async function login({ identifier, password }) {
     },
   });
 
-  if (!user || !user.isActive) {
-    console.log('User not found or inactive');
+  if (!user) {
+    console.log(`[AUTH] No user found for "${cleanIdentifier}"`);
+    const err = new Error('Invalid credentials');
+    err.status = 401;
+    throw err;
+  }
+
+  if (!user.isActive) {
+    console.log(`[AUTH] User "${user.email}" found but is INACTIVE`);
     const err = new Error('Invalid credentials');
     err.status = 401;
     throw err;
   }
 
   const ok = await comparePassword(password, user.passwordHash);
-  console.log(`Password comparison for ${user.email}: ${ok}`);
+  console.log(`[AUTH] Password check for ${user.email}: ${ok ? 'SUCCESS' : 'FAILED'}`);
   
   if (!ok) {
     const err = new Error('Invalid credentials');
