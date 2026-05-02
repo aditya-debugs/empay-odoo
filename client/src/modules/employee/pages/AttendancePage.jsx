@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import { Card, Button, Input } from '../../../features/ui';
-import { Clock, LogIn, LogOut, AlertCircle, CheckCircle2, MessageSquare } from 'lucide-react';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { Card, Button } from '../../../features/ui';
+import { Clock, LogIn, LogOut, CheckCircle, AlertCircle, History, Search, Zap, List } from 'lucide-react';
 import api from '../../../services/api';
 
 function Modal({ isOpen, onClose, title, children }) {
@@ -25,223 +25,311 @@ export default function AttendancePage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [todayStatus, setTodayStatus] = useState(null);
+  const [localSearch, setLocalSearch] = useState('');
+  
+  const [liveSessionMs, setLiveSessionMs] = useState(0);
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const timerRef = useRef(null);
 
-  // Regularization state
-  const [showRegForm, setShowRegForm] = useState(null); // Will hold the record to regularize
-  const [regReason, setRegReason] = useState('');
-
-  const [regModalOpen, setRegModalOpen] = useState(false);
-  const [regDate, setRegDate] = useState('');
-  const [regSubmitting, setRegSubmitting] = useState(false);
-
-  useEffect(() => {
-    loadAttendance();
+  const clearActiveTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    setIsTimerRunning(false);
   }, []);
 
-  const loadAttendance = async () => {
-    setLoading(true);
+  const startActiveTimer = useCallback((startTime) => {
+    clearActiveTimer();
+    setIsTimerRunning(true);
+    timerRef.current = setInterval(() => {
+      const now = Date.now();
+      setLiveSessionMs(Math.max(0, now - startTime));
+    }, 100);
+  }, [clearActiveTimer]);
+
+  const loadAttendance = useCallback(async (isInitial = false) => {
+    if (isInitial) setLoading(true);
     try {
       const data = await api.get('/attendance/me');
-      setAttendance(data.records || []);
-
-      const today = new Date().toISOString().split('T')[0];
-      const todayRecord = data.records?.find(r => r.date.split('T')[0] === today);
+      const records = data.records || [];
+      setAttendance(records);
+      
+      const todayString = new Date().toISOString().split('T')[0];
+      const todayRecord = records.find(r => r.date.split('T')[0] === todayString);
       setTodayStatus(todayRecord);
-    } catch (err) {
-      setError(err.message || 'Failed to load attendance');
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const handleCheckIn = async () => {
-    setChecking(true);
-    setError(''); setSuccess('');
-    try {
-      const response = await api.post('/attendance/check-in', {});
-      setSuccess('Checked in successfully!');
-      setTodayStatus(response.attendance);
-      await loadAttendance();
+      // Status check from newest logs (DESC)
+      if (todayRecord?.logs && todayRecord.logs.length > 0) {
+        const latest = todayRecord.logs[0];
+        if (latest.type === 'IN') {
+           const startTime = new Date(latest.timestamp).getTime();
+           startActiveTimer(startTime);
+        } else {
+           clearActiveTimer();
+           setLiveSessionMs(0);
+        }
+      } else {
+        clearActiveTimer();
+        setLiveSessionMs(0);
+      }
     } catch (err) {
-      setError(err.message || 'Failed to check in');
+      setError('System Error: Could not synchronize attendance history.');
+    } finally {
+      if (isInitial) setLoading(false);
+    }
+  }, [clearActiveTimer, startActiveTimer]);
+
+  useEffect(() => {
+    loadAttendance(true);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [loadAttendance]);
+
+  const handleAction = async (actionType) => {
+    if (checking) return;
+    setChecking(true);
+    setError('');
+    setSuccess('');
+
+    if (actionType === 'OUT') {
+      clearActiveTimer();
+    }
+
+    try {
+      const endpoint = actionType === 'IN' ? '/attendance/check-in' : '/attendance/check-out';
+      await api.post(endpoint, {});
+      setSuccess(`${actionType === 'IN' ? 'Shift Started' : 'Shift Stopped'}. Duration precision recorded.`);
+      
+      // Safety delay for DB consistency
+      setTimeout(() => loadAttendance(false), 600);
+    } catch (err) {
+      setError(err.message || 'Operation failed');
+      loadAttendance(false);
     } finally {
       setChecking(false);
     }
   };
 
-  const handleCheckOut = async () => {
-    setChecking(true);
-    setError(''); setSuccess('');
-    try {
-      const response = await api.post('/attendance/check-out', {});
-      setSuccess('Checked out successfully!');
-      setTodayStatus(response.attendance);
-      await loadAttendance();
-    } catch (err) {
-      setError(err.message || 'Failed to check out');
-    } finally {
-      setChecking(false);
-    }
+  const finishedMs = parseFloat(todayStatus?.hoursWorked || 0) * 1000 * 60 * 60;
+  const totalMs = finishedMs + liveSessionMs;
+  
+  const formatTime = (ms) => {
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const handleRegularize = async (e) => {
-    e.preventDefault();
-    setRegSubmitting(true);
-    setError(''); setSuccess('');
-    try {
-      await api.post('/attendance/regularize', { date: regDate, reason: regReason });
-      setSuccess('Regularization request submitted successfully.');
-      setRegModalOpen(false);
-      setRegDate('');
-      setRegReason('');
-    } catch (err) {
-      setError(err.message || 'Failed to submit regularization request');
-    } finally {
-      setRegSubmitting(false);
-    }
-  };
+  const formattedTotal = formatTime(totalMs);
+  const formattedLive = formatTime(liveSessionMs);
+  const formattedFinished = formatTime(finishedMs);
 
-  if (loading) return <div className="p-8">Loading...</div>;
+  const filteredHistory = attendance.filter(r => 
+    new Date(r.date).toLocaleDateString().includes(localSearch) ||
+    r.status.toLowerCase().includes(localSearch.toLowerCase())
+  );
+
+  const lastProcessedAction = todayStatus?.logs?.[0];
+
+  if (loading) return <div className="flex h-full items-center justify-center text-ink-muted">Validating Shift History...</div>;
 
   return (
-    <div className="px-8 py-8 relative">
-      <div className="flex justify-between items-center">
+    <div className="px-8 py-8 space-y-6">
+      <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">My Attendance</h1>
-          <p className="mt-1 text-sm text-ink-muted">Track your check-in and check-out times</p>
+          <h1 className="text-2xl font-bold text-ink">Daily Timesheet</h1>
+          <p className="text-[10px] font-bold text-ink-soft uppercase tracking-widest mt-1">Personnel Portal • Session-Based Accumulation</p>
         </div>
-        <Button variant="outline" leftIcon={<AlertCircle className="h-4 w-4" />} onClick={() => setRegModalOpen(true)}>
-          Regularize Attendance
-        </Button>
+        <div className="relative w-64 group">
+           <Search className="absolute left-3 top-2.5 h-4 w-4 text-ink-soft group-focus-within:text-brand-500" />
+           <input
+              type="text"
+              placeholder="Search shift records..."
+              value={localSearch}
+              onChange={(e) => setLocalSearch(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 text-xs border border-border rounded-lg bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/10 focus:border-brand-500 font-medium"
+           />
+        </div>
+      </header>
+
+      {error && <div className="p-3 bg-danger-50 text-danger-700 rounded-lg text-xs border border-danger-100 flex items-center gap-2"><AlertCircle className="h-4 w-4" />{error}</div>}
+      {success && <div className="p-3 bg-success-50 text-success-700 rounded-lg text-xs border border-success-100 flex items-center gap-2 font-bold animate-in fade-in fill-mode-both"><CheckCircle className="h-4 w-4" />{success}</div>}
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        {/* Real-time Tracking Panel */}
+        <Card className="lg:col-span-8 p-0 border-border shadow-lg overflow-hidden bg-white">
+           <div className="px-6 py-4 flex justify-between items-center border-b border-border bg-surface-muted/30">
+              <div className="flex items-center gap-3">
+                 <div className={`p-2.5 rounded-xl transition-all ${isTimerRunning ? 'bg-brand-600 text-white shadow-xl shadow-brand-500/30' : 'bg-surface-muted text-ink-muted shadow-inner'}`}>
+                    <Clock className="h-4 w-4" />
+                 </div>
+                 <div className="flex flex-col">
+                    <span className="text-[9px] font-bold text-ink-soft uppercase tracking-widest leading-none mb-1">Punch Status</span>
+                    <span className="text-[11px] font-bold text-ink uppercase tracking-wider">
+                        {isTimerRunning ? 'Shift in Progress' : 'Shift Not Started'}
+                    </span>
+                 </div>
+              </div>
+              {isTimerRunning && (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-full border border-brand-100 shadow-sm">
+                   <div className="h-1.5 w-1.5 rounded-full bg-brand-500 animate-ping" />
+                   <span className="text-[10px] font-bold text-brand-600 uppercase">Live Tracking Enabled</span>
+                </div>
+              )}
+           </div>
+
+           <div className="p-12 flex flex-col items-center justify-center">
+              <span className="text-[10px] font-bold text-ink-soft uppercase tracking-[0.4em] mb-4">Cumulative Work Hours Accomplished</span>
+              <div className="flex items-baseline gap-2 group cursor-default">
+                 <span className="text-6xl font-bold text-ink tabular-nums tracking-tighter transition-all group-hover:text-brand-600 font-mono">{formattedTotal}</span>
+              </div>
+              
+              <div className="w-full h-1.5 bg-surface-muted rounded-full mt-10 max-w-md overflow-hidden shadow-inner border border-border/50">
+                 <div 
+                    className="h-full bg-brand-500 transition-all duration-1000 shadow-[0_0_10px_rgba(59,130,246,0.5)]" 
+                    style={{ width: `${Math.min(100, (totalMs / (9 * 3600000)) * 100)}%` }}
+                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 w-full mt-10 max-w-md">
+                <Button
+                  size="xl"
+                  onClick={() => handleAction('IN')}
+                  loading={checking && !isTimerRunning}
+                  disabled={isTimerRunning || checking}
+                  className="h-16 font-black uppercase tracking-widest text-[11px] shadow-lg shadow-brand-500/10 active:scale-95 transition-all"
+                >
+                   Punch In
+                </Button>
+                <Button
+                  size="xl"
+                  variant="secondary"
+                  onClick={() => handleAction('OUT')}
+                  loading={checking && isTimerRunning}
+                  disabled={!isTimerRunning || checking}
+                  className={`h-16 font-black uppercase tracking-widest text-[11px] active:scale-95 transition-all ${isTimerRunning ? 'ring-2 ring-brand-500 border-brand-500' : ''}`}
+                >
+                   Punch Out
+                </Button>
+              </div>
+           </div>
+        </Card>
+
+        {/* Breakdown & Audit Card */}
+        <Card className="lg:col-span-4 p-8 border-border shadow-sm flex flex-col justify-between bg-surface-muted/10 border-none shadow-brand-500/5">
+           <div className="space-y-8">
+              <h3 className="text-[10px] font-bold text-ink-soft uppercase tracking-widest border-b border-border pb-3">Audit Details</h3>
+              
+              <div className="space-y-4">
+                 <div className="p-5 bg-white rounded-2xl border border-border shadow-sm">
+                    <span className="text-[10px] font-bold text-ink-soft uppercase tracking-widest block mb-2">Saved History</span>
+                    <div className="flex items-baseline gap-1">
+                        <span className="text-xl font-bold text-ink font-mono">{formattedFinished}</span>
+                    </div>
+                 </div>
+
+                 <div className="p-5 bg-brand-50/50 rounded-2xl border border-brand-100 ring-1 ring-brand-100 shadow-sm relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-2 opacity-5 scale-150 rotate-12 group-hover:rotate-0 transition-transform">
+                        <Zap className="h-12 w-12 text-brand-500" />
+                    </div>
+                    <span className="text-[10px] font-bold text-brand-700 uppercase tracking-widest block mb-2">Live Session</span>
+                    <div className="flex items-baseline gap-1">
+                        <span className="text-xl font-bold text-brand-700 font-mono">{formattedLive}</span>
+                    </div>
+                 </div>
+              </div>
+
+              {lastProcessedAction && (
+                <div className="flex items-center gap-3 p-4 bg-surface-muted/30 rounded-xl border border-dashed border-border">
+                    <div className="p-2 bg-white rounded-lg text-ink-muted">
+                        <List className="h-3 w-3" />
+                    </div>
+                    <div>
+                        <p className="text-[9px] font-bold text-ink-soft uppercase tracking-widest">Last Recorded Action</p>
+                        <p className="text-[10px] font-bold text-ink uppercase mt-0.5">{lastProcessedAction.type} at {new Date(lastProcessedAction.timestamp).toLocaleTimeString()}</p>
+                    </div>
+                </div>
+              )}
+           </div>
+
+           <div className="mt-8">
+              <p className="text-[9px] text-ink-soft leading-relaxed font-bold uppercase tracking-tight text-center italic opacity-60">
+                Resumes automatically: Your daily total is maintained as the sum of every verified session.
+              </p>
+           </div>
+        </Card>
       </div>
 
-      {error && <div className="p-3 bg-danger-500/10 border border-danger-500/50 rounded-xl text-danger-400 text-sm flex items-center gap-2">
-        <AlertCircle className="h-4 w-4" /> {error}
-      </div>}
-      {success && <div className="p-3 bg-success-500/10 border border-success-500/50 rounded-xl text-success-400 text-sm flex items-center gap-2">
-        <CheckCircle2 className="h-4 w-4" /> {success}
-      </div>}
-
-      {/* Check-in/Out Controls */}
-      <Card className="p-6 bg-brand-500 border-brand-600 relative overflow-hidden group shadow-lg">
-        <div className="absolute -right-12 -top-12 opacity-10 group-hover:opacity-20 transition-opacity duration-300">
-          <Clock className="h-48 w-48 text-brand-200" />
+      <Card className="border-border shadow-sm overflow-hidden bg-white">
+        <div className="px-6 py-4 bg-surface-muted/10 border-b border-border flex items-center gap-2">
+          <History className="h-3 w-3 text-ink-soft" />
+          <h2 className="text-[10px] font-bold text-ink-soft uppercase tracking-widest">Log Timeline (Today)</h2>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center relative z-10">
-          <div>
-            <p className="text-xs font-medium text-brand-100 uppercase tracking-wider">Status Today</p>
-            <div className="flex items-center gap-3 mt-2">
-              <div className={`h-3 w-3 rounded-full animate-pulse ${todayStatus?.checkIn ? 'bg-success-500' : 'bg-danger-500'}`} />
-              <p className="text-xl font-bold text-white">
-                {todayStatus?.checkIn ? (todayStatus?.checkOut ? 'Completed' : 'Active') : 'Not Started'}
-              </p>
-            </div>
-            {todayStatus?.checkIn && (
-              <p className="text-xs text-ink-muted mt-2">
-                Started at {new Date(todayStatus.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <p className="text-xs font-medium text-brand-100 uppercase tracking-wider">Time Tracked</p>
-            <p className="text-3xl font-bold text-white mt-1">
-              {todayStatus?.hoursWorked || '0.00'} <span className="text-sm font-normal text-brand-200">hrs</span>
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {!todayStatus?.checkIn ? (
-              <Button onClick={handleCheckIn} loading={checking} className="w-full bg-white text-brand-600 hover:bg-brand-50 border-none shadow-lg shadow-black/10">
-                <LogIn className="h-4 w-4 mr-2" /> Check In
-              </Button>
-            ) : !todayStatus?.checkOut ? (
-              <Button onClick={handleCheckOut} loading={checking} className="w-full bg-warning-500 text-white hover:bg-warning-600 border-none shadow-lg shadow-warning-500/20">
-                <LogOut className="h-4 w-4 mr-2" /> Check Out
-              </Button>
-            ) : (
-              <Button disabled className="w-full bg-white/10 text-brand-200 border-transparent">
-                Work Finished
-              </Button>
-            )}
+        <div className="p-6 max-h-64 overflow-y-auto">
+          <div className="space-y-4 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-px before:bg-border">
+            {todayStatus?.logs?.map((log, idx) => (
+              <div key={idx} className="relative pl-8 animate-in fade-in slide-in-from-left-2 duration-300" style={{ animationDelay: `${idx*100}ms` }}>
+                <div className={`absolute left-0 top-1.5 h-2.5 w-2.5 rounded-full border-2 border-white shadow-sm ring-2 ring-transparent transition-all ${log.type === 'IN' ? 'bg-success-500' : 'bg-danger-500'}`} />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded shadow-sm ${log.type === 'IN' ? 'bg-success-50 text-success-700 ring-1 ring-success-100' : 'bg-danger-50 text-danger-700 ring-1 ring-danger-100'}`}>{log.type}</span>
+                    <span className="text-[11px] text-ink font-bold uppercase tracking-tight opacity-70">Shift Marker Verified</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-3 w-3 text-ink-muted" />
+                    <span className="text-[10px] font-bold text-ink-muted font-mono">{new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {!todayStatus?.logs?.length && <div className="text-center py-10 text-[10px] font-bold text-ink-soft uppercase tracking-widest italic">Initialize session to view log history</div>}
           </div>
         </div>
       </Card>
-
-      <div className="mt-8">
-        <h2 className="text-xl font-semibold mb-4 text-ink">Recent Attendance</h2>
-        
-        {attendance.length === 0 ? (
-          <Card className="flex flex-col items-center justify-center py-12 text-ink-muted bg-surface/50 border-dashed border-2">
-            <Clock className="h-8 w-8 mb-2 opacity-20" />
-            <p className="text-sm font-medium">No attendance records yet</p>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {attendance.map((record) => (
-              <Card key={record.id} className="p-5 hover:shadow-md transition-shadow group flex flex-col justify-between">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <p className="font-bold text-ink">
-                      {new Date(record.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
-                    </p>
-                    <p className="text-xs text-ink-muted mt-0.5">
-                      {record.hoursWorked || 0} hours total
-                    </p>
-                  </div>
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold tracking-wide uppercase border ${
-                      record.status === 'PRESENT' ? 'bg-success-50 text-success-700 border-success-500/20' :
-                      record.status === 'REGULARIZED' ? 'bg-brand-50 text-brand-700 border-brand-500/20' :
-                      'bg-danger-50 text-danger-700 border-danger-500/20'
-                    }`}>
+      
+      {/* Historical Records Table */}
+      <Card className="overflow-hidden border-border shadow-lg bg-white">
+        <table className="w-full text-xs text-left">
+          <thead className="bg-surface-muted/40 text-ink-soft font-bold uppercase text-[9px] tracking-widest border-b border-border">
+            <tr>
+              <th className="py-5 px-8">Payroll Period / Date</th>
+              <th className="py-5 px-8">Aggregated Work Effort</th>
+              <th className="py-5 px-8 text-right">Verification</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {filteredHistory.map((record) => (
+              <tr key={record.id} className="hover:bg-brand-50/10 transition-colors group">
+                <td className="py-5 px-8 font-bold text-ink group-hover:text-brand-600 transition-colors">{new Date(record.date).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}</td>
+                <td className="py-5 px-8">
+                    <div className="flex items-center gap-2">
+                        <span className="font-black text-brand-600 text-sm tracking-tight font-mono">
+                          {(() => {
+                            const secs = Math.floor(parseFloat(record.hoursWorked || 0) * 3600);
+                            const h = Math.floor(secs / 3600);
+                            const m = Math.floor((secs % 3600) / 60);
+                            const s = secs % 60;
+                            return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                          })()}
+                        </span>
+                        <span className="text-[9px] font-black text-ink-soft uppercase shadow-sm border border-brand-100 bg-brand-50 rounded px-1 min-w-[24px] text-center">HRS</span>
+                    </div>
+                </td>
+                <td className="py-5 px-8 text-right">
+                   <span className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase shadow-sm border ${
+                    record.status === 'PRESENT' ? 'bg-success-50 text-success-600 border-success-100' : 'bg-danger-50 text-danger-600 border-danger-100'
+                  }`}>
                     {record.status}
                   </span>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4 mt-auto p-3 bg-surface-muted rounded-xl">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wider font-semibold text-ink-soft mb-1">Check In</p>
-                    <p className="text-sm font-semibold text-ink">
-                      {record.checkIn ? new Date(record.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wider font-semibold text-ink-soft mb-1">Check Out</p>
-                    <p className="text-sm font-semibold text-ink">
-                      {record.checkOut ? new Date(record.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
-                    </p>
-                  </div>
-                </div>
-              </Card>
+                </td>
+              </tr>
             ))}
-          </div>
-        )}
-      </div>
-
-      <Modal isOpen={regModalOpen} onClose={() => setRegModalOpen(false)} title="Request Regularization">
-        <form onSubmit={handleRegularize} className="space-y-4">
-          <Input
-            label="Date of missed attendance"
-            type="date"
-            required
-            value={regDate}
-            onChange={(e) => setRegDate(e.target.value)}
-            max={new Date().toISOString().split('T')[0]}
-          />
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-ink">Reason / Proof Details</label>
-            <textarea
-              required
-              className="w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-ink focus:border-brand-500 focus:outline-none min-h-[100px]"
-              placeholder="E.g., I was present but forgot to swipe in because..."
-              value={regReason}
-              onChange={(e) => setRegReason(e.target.value)}
-            />
-          </div>
-          <Button type="submit" className="w-full" loading={regSubmitting}>Submit Request</Button>
-        </form>
-      </Modal>
+          </tbody>
+        </table>
+      </Card>
     </div>
   );
 }

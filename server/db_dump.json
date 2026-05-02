@@ -1,0 +1,140 @@
+{
+  "id": "dd70eff4-db3c-4c92-b80a-49261d137e97",
+  "employeeId": "bdcd2815-ff13-40d3-b8ea-0086696a303b",
+  "date": "2026-05-02T00:00:00.000Z",
+  "checkIn": "2026-05-02T19:33:32.488Z",
+  "checkOut": "2026-05-02T19:33:36.363Z",
+  "hoursWorked": "0.01",
+  "status": "PRESENT",
+  "notes": null,
+  "createdAt": "2026-05-02T19:16:40.604Z",
+  "updatedAt": "2026-05-02T19:33:36.365Z",
+  "logs": [
+    {
+      "id": "fd2403ce-4224-47bd-b1e5-93ecbf9f937d",
+      "attendanceId": "dd70eff4-db3c-4c92-b80a-49261d137e97",
+      "type": "OUT",
+      "timestamp": "2026-05-02T19:33:36.228Z"
+    },
+    {
+      "id": "b6beb862-4253-491e-9ad4-27a562598426",
+      "attendanceId": "dd70eff4-db3c-4c92-b80a-49261d137e97",
+      "type": "IN",
+      "timestamp": "2026-05-02T19:33:32.432Z"
+    },
+    {
+      "id": "d04294da-0c9b-4f30-a012-6e7662ddda1a",
+      "attendanceId": "dd70eff4-db3c-4c92-b80a-49261d137e97",
+      "type": "OUT",
+      "timestamp": "2026-05-02T19:33:28.106Z"
+    },
+    {
+      "id": "bc384cfe-24b9-4452-8267-b7ea9c3b39dd",
+      "attendanceId": "dd70eff4-db3c-4c92-b80a-49261d137e97",
+      "type": "IN",
+      "timestamp": "2026-05-02T19:33:20.360Z"
+    },
+    {
+      "id": "42b8b73a-d44f-45bb-a6b8-d20e4fc7d642",
+      "attendanceId": "dd70eff4-db3c-4c92-b80a-49261d137e97",
+      "type": "OUT",
+      "timestamp": "2026-05-02T19:30:55.185Z"
+    },
+    {
+      "id": "c88ab159-212a-4b69-a3e0-679815690819",
+      "attendanceId": "dd70eff4-db3c-4c92-b80a-49261d137e97",
+      "type": "OUT",
+      "timestamp": "2026-05-02T19:29:18.456Z"
+    },
+    {
+      "id": "90036b65-29eb-4ab7-80fa-7924ff0d0d52",
+      "attendanceId": "dd70eff4-db3c-4c92-b80a-49261d137e97",
+      "type": "IN",
+      "timestamp": "2026-05-02T19:29:12.746Z"
+    },
+    {
+      "id": "8edd2d09-52a0-482c-bdbb-8716ee9d67c9",
+      "attendanceId": "dd70eff4-db3c-4c92-b80a-49261d137e97",
+      "type": "OUT",
+      "timestamp": "2026-05-02T19:29:05.915Z"
+    },
+    {
+      "id": "ef6984de-c1dc-419d-9d64-7e254a2f909a",
+      "attendanceId": "dd70eff4-db3c-4c92-b80a-49261d137e97",
+      "type": "IN",
+      "timestamp": "2026-05-02T19:28:57.927Z"
+    },
+    {
+      "id": "41fd0128-7dd3-4d5d-a9bc-ef8e9ff9df0d",
+      "attendanceId": "dd70eff4-db3c-4c92-b80a-49261d137e97",
+      "type": "OUT",
+      "timestamp": "2026-05-02T19:28:48.640Z"
+    },
+    {
+      "id": "a0ce98d5-3055-45c5-a65c-4956be6211d5",
+      "attendanceId": "dd70eff4-db3c-4c92-b80a-49261d137e97",
+      "type": "IN",
+      "timestamp": "2026-05-02T19:28:40.504Z"
+    },
+    {
+      "id": "804d0ec8-9d7b-476c-872d-0649133b107c",
+      "attendanceId": "dd70eff4-db3c-4c92-b80a-49261d137e97",
+      "type": "OUT",
+      "timestamp": "2026-05-02T19:25:52.488Z"
+    },
+    {
+      "id": "8ad2eed4-16ac-44ab-9c18-9e17fe495197",
+      "attendanceId": "dd70eff4-db3c-4c92-b80a-49261d137e97",
+      "type": "OUT",
+      "timestamp": "2026-05-02T19:25:48.767Z"
+    },
+    {
+      "id": "ee8f0eff-7021-48cd-a41f-887ef424dbb5",
+      "attendanceId": "dd70eff4-db3c-4c92-b80a-49261d137e97",
+      "type": "OUT",
+      "timestamp": "2026-05-02T19:23:18.136Z"
+    },
+    {
+      "id": "1cd1fab9-8e7b-4b17-a5a6-603982e4e632",
+      "attendanceId": "dd70eff4-db3c-4c92-b80a-49261d137e97",
+      "type": "OUT",
+      "timestamp": "2026-05-02T19:21:57.884Z"
+    },
+    {
+      "id": "31ea8883-b0dd-4001-baa6-e2f73885da97",
+      "attendanceId": "dd70eff4-db3c-4c92-b80a-49261d137e97",
+      "type": "OUT",
+      "timestamp": "2026-05-02T19:18:26.971Z"
+    },
+    {
+      "id": "a4f45d3f-2b07-486c-8d29-3710b8a6a56a",
+      "attendanceId": "dd70eff4-db3c-4c92-b80a-49261d137e97",
+      "type": "OUT",
+      "timestamp": "2026-05-02T19:18:23.439Z"
+    },
+    {
+      "id": "24f4935e-85e6-4cf0-b861-481252d547b2",
+      "attendanceId": "dd70eff4-db3c-4c92-b80a-49261d137e97",
+      "type": "OUT",
+      "timestamp": "2026-05-02T19:16:56.235Z"
+    },
+    {
+      "id": "17423f28-9afd-4b19-a292-1e328a7353a8",
+      "attendanceId": "dd70eff4-db3c-4c92-b80a-49261d137e97",
+      "type": "OUT",
+      "timestamp": "2026-05-02T19:16:49.510Z"
+    },
+    {
+      "id": "063e6d5e-d926-4cc7-8cd0-66ce9b3deab1",
+      "attendanceId": "dd70eff4-db3c-4c92-b80a-49261d137e97",
+      "type": "OUT",
+      "timestamp": "2026-05-02T19:16:45.871Z"
+    },
+    {
+      "id": "56e6a9aa-ea55-4255-9b9f-79dbf7bf1067",
+      "attendanceId": "dd70eff4-db3c-4c92-b80a-49261d137e97",
+      "type": "IN",
+      "timestamp": "2026-05-02T19:16:40.711Z"
+    }
+  ]
+}

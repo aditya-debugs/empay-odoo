@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Printer } from 'lucide-react';
 import { Card, Button } from '../../../features/ui';
-import { payslipsService, settingsService } from '../../../services/payrollService';
+import api from '../../../services/api';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -21,7 +21,10 @@ export default function PayslipViewerPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    Promise.all([payslipsService.get(id), settingsService.get()])
+    Promise.all([
+      api.get(`/payslips/${id}`).then(res => ({ payslip: res })),
+      api.get('/settings').catch(() => ({})).then(res => ({ settings: res || {} }))
+    ])
       .then(([{ payslip }, { settings }]) => { setPayslip(payslip); setSettings(settings); })
       .catch((e) => setError(e.message || 'Failed to load payslip'))
       .finally(() => setLoading(false));

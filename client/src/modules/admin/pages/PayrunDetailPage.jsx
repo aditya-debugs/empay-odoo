@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Eye } from 'lucide-react';
 import { Card, Avatar, Button } from '../../../features/ui';
-import { payrollService } from '../../../services/payrollService';
+import api from '../../../services/api';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -22,7 +22,7 @@ export default function PayrunDetailPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    payrollService.getRun(year, month, version)
+    api.get(`/payroll/runs/${year}/${month}?version=${version || ''}`)
       .then((r) => setRun(r))
       .catch((e) => setError(e.message || 'Failed to load payrun'))
       .finally(() => setLoading(false));

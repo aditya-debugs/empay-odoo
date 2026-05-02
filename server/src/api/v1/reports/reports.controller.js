@@ -28,7 +28,23 @@ exports.headcount = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-// Placeholders for others
-exports.pf = async (req, res) => res.json([]);
-exports.profTax = async (req, res) => res.json([]);
-exports.ytd = async (req, res) => res.json([]);
+exports.pf = async (req, res, next) => {
+  try {
+    const data = await service.getPfReport(req.query);
+    res.json(data);
+  } catch (err) { next(err); }
+};
+
+exports.profTax = async (req, res, next) => {
+  try {
+    const data = await service.getProfTaxReport(req.query);
+    res.json(data);
+  } catch (err) { next(err); }
+};
+
+exports.ytd = async (req, res, next) => {
+  try {
+    const data = await service.getYtdReport(req.query);
+    res.json(data);
+  } catch (err) { next(err); }
+};

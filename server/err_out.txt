@@ -1,0 +1,4 @@
+GET ERR: TypeError: Cannot read properties of null (reading 'id')
+    at test (C:\Users\Administrator\Desktop\empay-odoo\server\test_err.js:10:55)
+POST ERR: TypeError: Cannot read properties of null (reading 'id')
+    at test (C:\Users\Administrator\Desktop\empay-odoo\server\test_err.js:17:42)

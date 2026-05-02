@@ -85,21 +85,18 @@ async function main() {
         role: 'PAYROLL_OFFICER',
         companyName,
         isActive: true,
+        mustChangePassword: false
       }
     });
+    console.log('Admin seeded: admin@empay.com / Password@123');
+  } else {
+    console.log('Admin already exists');
   }
 
-  // 4. Employees (15)
-  const depts = ['Engineering', 'Sales', 'Marketing', 'Operations', 'Finance'];
-  const firstNames = ['John', 'Alice', 'Bob', 'Charlie', 'Diana', 'Edward', 'Fiona', 'George', 'Hannah', 'Ian', 'Julia', 'Kevin', 'Laura', 'Mark', 'Nancy'];
-  const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez', 'Hernandez', 'Lopez', 'Gonzalez', 'Wilson', 'Anderson'];
-
-  for (let i = 0; i < 15; i++) {
-    const fName = firstNames[i];
-    const lName = lastNames[i];
-    const email = `${fName.toLowerCase()}@empay.com`;
-    const loginId = getOdooId(fName, lName, joinYear, i + 1);
-    
+  const empEmail = 'employee@empay.com';
+  const existingEmp = await prisma.user.findUnique({ where: { email: empEmail } });
+  if (!existingEmp) {
+    const passwordHash = await bcrypt.hash('Password@123', 10);
     const user = await prisma.user.create({
       data: {
         email,
@@ -142,17 +139,17 @@ async function main() {
     const today = new Date();
     for (let j = 0; j < 7; j++) {
       const date = new Date(today);
-      date.setDate(today.getDate() - j);
-      date.setHours(0,0,0,0);
-      if (date.getDay() === 0) continue;
+      date.setDate(today.getDate() - i);
+      date.setHours(0, 0, 0, 0);
+
       await prisma.attendance.create({
         data: {
           employeeId: employee.id,
-          date,
-          status: 'PRESENT',
-          checkIn: new Date(new Date(date).setHours(9,0,0)),
-          checkOut: new Date(new Date(date).setHours(18,0,0)),
-          hoursWorked: 9
+          date: date,
+          checkIn: new Date(date.setHours(9, 0, 0)),
+          checkOut: new Date(date.setHours(18, 0, 0)),
+          hoursWorked: 9.0,
+          status: 'PRESENT'
         }
       });
     }

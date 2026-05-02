@@ -6,8 +6,11 @@ const prisma = require('./config/prisma');
 const apiV1 = require('./api/v1');
 const { ensureBootstrapAdmin } = require('./utils/bootstrap');
 
+const path = require('path');
+
 const app = express();
 
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use(cors({ origin: env.clientUrl, credentials: true }));
 app.use(express.json());
 app.use('/uploads', express.static('uploads'));
