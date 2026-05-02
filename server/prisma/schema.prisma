@@ -9,3 +9,9 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+// Placeholder — Prisma requires at least one model to generate the client.
+// Delete this once you add your first real model.
+model PrismaPlaceholder {
+  id Int @id @default(autoincrement())
+}
