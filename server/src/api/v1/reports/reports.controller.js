@@ -1,29 +1,50 @@
 const service = require('./reports.service');
 
-exports.getAttendanceReport = async (req, res, next) => {
-  try { res.json(await service.getAttendanceReport()); } catch(e) { next(e); }
+exports.attendance = async (req, res, next) => {
+  try {
+    const data = await service.getAttendanceReport(req.query);
+    res.json(data);
+  } catch (err) { next(err); }
 };
 
-exports.getLeaveReport = async (req, res, next) => {
-  try { res.json(await service.getLeaveReport()); } catch(e) { next(e); }
+exports.leave = async (req, res, next) => {
+  try {
+    const data = await service.getLeaveReport(req.query);
+    res.json(data);
+  } catch (err) { next(err); }
 };
 
-exports.getPayrollReport = async (req, res, next) => {
-  try { res.json(await service.getPayrollReport()); } catch(e) { next(e); }
+exports.payroll = async (req, res, next) => {
+  try {
+    const data = await service.getPayrollReport(req.query);
+    res.json(data);
+  } catch (err) { next(err); }
 };
 
-exports.getHeadcountReport = async (req, res, next) => {
-  try { res.json(await service.getHeadcountReport()); } catch(e) { next(e); }
+exports.headcount = async (req, res, next) => {
+  try {
+    const data = await service.getHeadcountReport(req.query);
+    res.json(data);
+  } catch (err) { next(err); }
 };
 
-exports.getPfReport = async (req, res, next) => {
-  try { res.json(await service.getPfReport()); } catch(e) { next(e); }
+exports.pf = async (req, res, next) => {
+  try {
+    const data = await service.getPfReport(req.query);
+    res.json(data);
+  } catch (err) { next(err); }
 };
 
-exports.getProfTaxReport = async (req, res, next) => {
-  try { res.json(await service.getProfTaxReport()); } catch(e) { next(e); }
+exports.profTax = async (req, res, next) => {
+  try {
+    const data = await service.getProfTaxReport(req.query);
+    res.json(data);
+  } catch (err) { next(err); }
 };
 
-exports.getYtdReport = async (req, res, next) => {
-  try { res.json(await service.getYtdReport()); } catch(e) { next(e); }
+exports.ytd = async (req, res, next) => {
+  try {
+    const data = await service.getYtdReport(req.query);
+    res.json(data);
+  } catch (err) { next(err); }
 };

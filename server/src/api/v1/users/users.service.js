@@ -128,6 +128,7 @@ async function createUser(input, creatorId) {
         position: input.position,
         joinDate: new Date(input.joinDate),
         employmentType: input.employmentType || 'FULL_TIME',
+        avatarUrl: input.avatarUrl || null,
         basicSalary: input.basicSalary || 0,
         hra: input.hra ?? null,
         conveyance: input.conveyance ?? null,
@@ -168,6 +169,12 @@ async function createUser(input, creatorId) {
     });
   });
 
+  // Send email asynchronously without blocking the request
+  const { sendWelcomeEmail } = require('../../../utils/email');
+  sendWelcomeEmail(created, loginId, tempPassword).catch(err => {
+    console.error('Failed to send welcome email:', err);
+  });
+
   return {
     user: shapeUser(created),
     loginId,
@@ -201,10 +208,16 @@ async function deleteUser(id) {
 async function resetPassword(id) {
   const tempPassword = generateTempPassword();
   const passwordHash = await hashPassword(tempPassword);
-  await prisma.user.update({
+  const updatedUser = await prisma.user.update({
     where: { id },
     data: { passwordHash, mustChangePassword: true },
   });
+
+  const { sendWelcomeEmail } = require('../../../utils/email');
+  sendWelcomeEmail(updatedUser, updatedUser.loginId, tempPassword).catch(err => {
+    console.error('Failed to re-send welcome email:', err);
+  });
+
   return { tempPassword };
 }
 

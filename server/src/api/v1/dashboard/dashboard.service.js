@@ -173,4 +173,73 @@ async function getPayrollDashboard() {
   };
 }
 
-module.exports = { getEmployeeDashboard, getAdminDashboard, getPayrollDashboard };
+async function getHRDashboard() {
+  const totalEmployees = await prisma.employee.count({ where: { status: 'ACTIVE' } });
+  
+  // Attendance today
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const attendanceToday = await prisma.attendance.findMany({
+    where: {
+      date: { gte: today, lt: tomorrow }
+    }
+  });
+
+  const presentToday = attendanceToday.filter(a => a.status === 'PRESENT').length;
+  const onLeaveToday = attendanceToday.filter(a => a.status === 'ON_LEAVE').length;
+  const absentToday = attendanceToday.filter(a => a.status === 'ABSENT').length;
+
+  // Pending leave requests
+  const pendingLeaves = await prisma.leave.findMany({
+    where: { status: 'PENDING' },
+    include: { employee: { include: { user: true } } },
+    orderBy: { createdAt: 'desc' },
+    take: 5
+  });
+
+  const pendingLeavesCount = await prisma.leave.count({
+    where: { status: 'PENDING' }
+  });
+
+  // New joiners (last 30 days)
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  
+  const newJoiners = await prisma.employee.findMany({
+    where: {
+      joinDate: { gte: thirtyDaysAgo },
+      status: 'ACTIVE'
+    },
+    include: { user: true },
+    orderBy: { joinDate: 'desc' },
+    take: 5
+  });
+
+  return {
+    stats: {
+      totalEmployees,
+      presentToday,
+      onLeaveToday,
+      absentToday,
+      pendingLeavesCount
+    },
+    pendingLeaves,
+    newJoiners: newJoiners.map(e => ({
+      id: e.user.id,
+      name: e.user.name,
+      department: e.department,
+      position: e.position,
+      joinDate: e.joinDate
+    }))
+  };
+}
+
+module.exports = { 
+  getEmployeeDashboard, 
+  getAdminDashboard, 
+  getPayrollDashboard, 
+  getHRDashboard 
+};

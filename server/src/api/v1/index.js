@@ -24,5 +24,7 @@ router.use('/settings',         require('./settings/settings.routes'));
 
 // Unified Payroll Module (Phase 2)
 router.use('/', require('../payrollRoutes'));
+router.use('/reports',          require('./reports/reports.routes'));
+router.use('/upload',           require('./upload/upload.routes'));
 
 module.exports = router;

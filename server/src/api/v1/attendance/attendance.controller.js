@@ -30,5 +30,29 @@ exports.listAll = async (req, res, next) => {
   } catch (e) { next(e); }
 };
 
-module.exports = exports;
+exports.raiseRegularization = async (req, res, next) => {
+  try {
+    const { date, reason } = req.body;
+    if (!date || !reason) return res.status(400).json({ message: 'Date and reason are required' });
+    const result = await service.raiseRegularization(req.user.id, { date, reason });
+    res.json({ message: 'Request submitted', request: result });
+  } catch (e) { next(e); }
+};
 
+exports.listRegularizations = async (req, res, next) => {
+  try {
+    const requests = await service.listRegularizationRequests();
+    res.json({ requests });
+  } catch (e) { next(e); }
+};
+
+exports.reviewRegularization = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const result = await service.reviewRegularization(id, req.user.id, { status });
+    res.json({ message: 'Request reviewed', request: result });
+  } catch (e) { next(e); }
+};
+
+module.exports = exports;

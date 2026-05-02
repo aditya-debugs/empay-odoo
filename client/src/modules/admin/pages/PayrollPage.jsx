@@ -49,6 +49,9 @@ export default function PayrollPage() {
             Process payroll for any month. Salary structure & statutory rules come from <span className="font-medium text-ink">Settings</span>.
           </p>
         </div>
+        <Button variant="outline" onClick={() => navigate('/admin/payroll/disputes')}>
+          View Dispute Queue
+        </Button>
       </div>
 
       {/* Run-payroll card */}

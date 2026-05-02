@@ -1,6 +1,7 @@
 const { Router } = require('express');
 const ctrl = require('./employees.controller');
-const { requireAuth } = require('../../../middleware/auth');
+const { requireAuth, requireRole } = require('../../../middleware/auth');
+
 
 const router = Router();
 
@@ -15,7 +16,10 @@ router.patch('/bank-details', ctrl.updateBankDetails);
 router.get('/',     ctrl.list);
 router.get('/:id',  ctrl.get);
 
-// TODO (next iteration): POST /, PATCH /:id, POST /:id/avatar, POST /:id/send-credentials
-// HR-officer module owns admin-side employee creation; admin uses /users for creation.
+// Administrative routes
+router.post('/', requireRole('ADMIN', 'HR_OFFICER'), ctrl.create);
+router.patch('/:id', requireRole('ADMIN', 'HR_OFFICER'), ctrl.update);
+router.post('/:id/send-credentials', requireRole('ADMIN', 'HR_OFFICER'), ctrl.sendCredentials);
 
 module.exports = router;
+

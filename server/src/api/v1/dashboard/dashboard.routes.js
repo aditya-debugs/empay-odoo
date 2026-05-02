@@ -13,4 +13,7 @@ router.get('/admin', requireAuth, requireRole('ADMIN'), ctrl.getAdminDashboard);
 // GET /payroll — Payroll dashboard [PAYROLL_OFFICER]
 router.get('/payroll', requireAuth, requireRole('PAYROLL_OFFICER'), ctrl.getPayrollDashboard);
 
+// GET /hr — HR dashboard [ADMIN, HR_OFFICER]
+router.get('/hr', requireAuth, requireRole('ADMIN', 'HR_OFFICER'), ctrl.getHRDashboard);
+
 module.exports = router;

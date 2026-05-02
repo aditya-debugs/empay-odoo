@@ -1,46 +1,105 @@
 const prisma = require('../../../config/prisma');
 
-exports.getAttendanceReport = async () => {
+exports.getAttendanceReport = async ({ startDate, endDate, department }) => {
+  const where = {};
+  if (startDate || endDate) {
+    where.date = {};
+    if (startDate) where.date.gte = new Date(startDate);
+    if (endDate) where.date.lte = new Date(endDate);
+  }
+  if (department) {
+    where.employee = { department };
+  }
+
   return await prisma.attendance.findMany({
-    include: { employee: { select: { firstName: true, lastName: true, department: true } } },
-    orderBy: { date: 'desc' },
-    take: 100
+    where,
+    include: {
+      employee: {
+        select: {
+          firstName: true,
+          lastName: true,
+          department: true,
+          user: { select: { name: true, loginId: true } }
+        }
+      }
+    },
+    orderBy: [{ date: 'desc' }, { employeeId: 'asc' }],
+    take: 200
   });
 };
 
-exports.getLeaveReport = async () => {
+exports.getLeaveReport = async ({ startDate, endDate, department }) => {
+  const where = {};
+  if (startDate || endDate) {
+    where.startDate = {};
+    if (startDate) where.startDate.gte = new Date(startDate);
+    if (endDate) where.startDate.lte = new Date(endDate);
+  }
+  if (department) {
+    where.employee = { department };
+  }
+
   return await prisma.leave.findMany({
-    include: { employee: { select: { firstName: true, lastName: true, department: true } } },
-    orderBy: { createdAt: 'desc' },
-    take: 100
+    where,
+    include: {
+      employee: {
+        select: {
+          firstName: true,
+          lastName: true,
+          department: true,
+          user: { select: { name: true, loginId: true } }
+        }
+      }
+    },
+    orderBy: { startDate: 'desc' },
+    take: 200
   });
 };
 
-exports.getPayrollReport = async () => {
+exports.getPayrollReport = async ({ year, month, department }) => {
+  const where = {};
+  if (year) where.year = parseInt(year, 10);
+  if (month) where.month = parseInt(month, 10);
+  if (department) {
+    where.employee = { department };
+  }
+
   return await prisma.payslip.findMany({
-    include: { employee: { select: { firstName: true, lastName: true, department: true } } },
-    orderBy: { createdAt: 'desc' },
-    take: 100
+    where,
+    include: {
+      employee: {
+        select: {
+          firstName: true,
+          lastName: true,
+          department: true,
+          user: { select: { name: true, loginId: true } }
+        }
+      }
+    },
+    orderBy: [{ year: 'desc' }, { month: 'desc' }],
+    take: 200
   });
 };
 
 exports.getHeadcountReport = async () => {
-  const activeCount = await prisma.employee.count({ where: { status: 'ACTIVE' } });
-  const inactiveCount = await prisma.employee.count({ where: { status: { not: 'ACTIVE' } } });
-  const byDept = await prisma.employee.groupBy({ by: ['department'], _count: { _all: true } });
-  
-  return { active: activeCount, inactive: inactiveCount, byDepartment: byDept };
+  return await prisma.employee.groupBy({
+    by: ['department', 'status'],
+    _count: { id: true }
+  });
 };
 
-exports.getPfReport = async () => {
+exports.getPfReport = async ({ year, month }) => {
+  const where = { status: 'GENERATED' };
+  if (year) where.year = parseInt(year, 10);
+  if (month) where.month = parseInt(month, 10);
+
   const payslips = await prisma.payslip.findMany({
-    where: { status: 'GENERATED' },
+    where,
     include: { employee: { select: { firstName: true, lastName: true, pan: true, aadhaar: true } } },
     orderBy: { createdAt: 'desc' },
-    take: 100
+    take: 200
   });
   
-  // Extract PF data from deductions json
   return payslips.map(p => {
     let pfAmount = 0;
     if (Array.isArray(p.deductions)) {
@@ -57,12 +116,16 @@ exports.getPfReport = async () => {
   });
 };
 
-exports.getProfTaxReport = async () => {
+exports.getProfTaxReport = async ({ year, month }) => {
+  const where = { status: 'GENERATED' };
+  if (year) where.year = parseInt(year, 10);
+  if (month) where.month = parseInt(month, 10);
+
   const payslips = await prisma.payslip.findMany({
-    where: { status: 'GENERATED' },
+    where,
     include: { employee: { select: { firstName: true, lastName: true } } },
     orderBy: { createdAt: 'desc' },
-    take: 100
+    take: 200
   });
   
   return payslips.map(p => {
@@ -80,11 +143,14 @@ exports.getProfTaxReport = async () => {
   });
 };
 
-exports.getYtdReport = async () => {
-  const currentYear = new Date().getFullYear();
+exports.getYtdReport = async ({ year, employeeId }) => {
+  const currentYear = year ? parseInt(year, 10) : new Date().getFullYear();
+  const where = { year: currentYear, status: 'GENERATED' };
+  if (employeeId) where.employeeId = employeeId;
+
   const runs = await prisma.payslip.groupBy({
     by: ['employeeId'],
-    where: { year: currentYear, status: 'GENERATED' },
+    where,
     _sum: { grossSalary: true, totalDeductions: true, netSalary: true }
   });
   
