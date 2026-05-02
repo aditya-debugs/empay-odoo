@@ -16,9 +16,11 @@ export default function MyProfilePage() {
     lastName: '',
     phone: '',
     dob: '',
-    bankName: '',
-    bankAccountNo: '',
-    bankIfsc: ''
+    bankIfsc: '',
+    aboutMe: '',
+    skills: '',
+    certificates: '',
+    resumeUrl: ''
   });
 
   useEffect(() => {
@@ -32,9 +34,11 @@ export default function MyProfilePage() {
           lastName: emp.lastName || '',
           phone: emp.phone || '',
           dob: emp.dob ? new Date(emp.dob).toISOString().split('T')[0] : '',
-          bankName: emp.bankName || '',
-          bankAccountNo: emp.bankAccountNo || '',
-          bankIfsc: emp.bankIfsc || ''
+          bankIfsc: emp.bankIfsc || '',
+          aboutMe: emp.aboutMe || '',
+          skills: (emp.skills || []).join(', '),
+          certificates: (emp.certificates || []).join(', '),
+          resumeUrl: emp.resumeUrl || ''
         });
       } catch (err) {
         setError(err.message || 'Failed to load profile');
@@ -141,6 +145,14 @@ export default function MyProfilePage() {
           Bank Details
         </button>
         <button
+          onClick={() => setActiveTab('career')}
+          className={`pb-3 px-2 font-medium text-sm transition-colors ${
+            activeTab === 'career' ? 'text-primary-600 border-b-2 border-primary-600' : 'text-ink-muted'
+          }`}
+        >
+          Career & Resume
+        </button>
+        <button
           onClick={() => setActiveTab('security')}
           className={`pb-3 px-2 font-medium text-sm transition-colors ${
             activeTab === 'security' ? 'text-primary-600 border-b-2 border-primary-600' : 'text-ink-muted'
@@ -188,6 +200,70 @@ export default function MyProfilePage() {
             leftIcon={<Save className="h-4 w-4" />}
           >
             Save Changes
+          </Button>
+        </Card>
+      )}
+
+      {/* Career Info Tab */}
+      {activeTab === 'career' && (
+        <Card className="mt-6 p-6">
+          <div className="space-y-6">
+            <Input
+              label="Professional Summary (About Me)"
+              name="aboutMe"
+              multiline="true"
+              placeholder="Tell us about yourself and why you love your job..."
+              value={formData.aboutMe}
+              onChange={handleInputChange}
+            />
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              <Input
+                label="Skills (comma separated)"
+                name="skills"
+                placeholder="JavaScript, React, Node.js..."
+                value={formData.skills}
+                onChange={handleInputChange}
+              />
+              <Input
+                label="Certificates (comma separated)"
+                name="certificates"
+                placeholder="AWS Certified, Google Cloud..."
+                value={formData.certificates}
+                onChange={handleInputChange}
+              />
+            </div>
+            <Input
+              label="Resume Link / Portfolio URL"
+              name="resumeUrl"
+              placeholder="https://drive.google.com/..."
+              value={formData.resumeUrl}
+              onChange={handleInputChange}
+            />
+          </div>
+          <Button
+            onClick={async () => {
+              setSaving(true);
+              setError('');
+              setSuccess('');
+              try {
+                await api.patch('/employees/profile', {
+                  aboutMe: formData.aboutMe,
+                  skills: formData.skills.split(',').map(s => s.trim()).filter(Boolean),
+                  certificates: formData.certificates.split(',').map(c => c.trim()).filter(Boolean),
+                  resumeUrl: formData.resumeUrl
+                });
+                setSuccess('Career information updated successfully');
+              } catch (err) {
+                setError(err.message || 'Failed to save career info');
+              } finally {
+                setSaving(false);
+              }
+            }}
+            loading={saving}
+            className="mt-6"
+            leftIcon={<Save className="h-4 w-4" />}
+          >
+            Save Career Info
           </Button>
         </Card>
       )}

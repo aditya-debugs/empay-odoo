@@ -23,16 +23,29 @@ export const Input = forwardRef(function Input(
         )}
       >
         {leftIcon && <span className="text-ink-muted">{leftIcon}</span>}
-        <input
-          ref={ref}
-          id={inputId}
-          className={cn(
-            'h-11 w-full bg-transparent text-sm text-ink placeholder:text-ink-soft',
-            'focus:outline-none',
-            className,
-          )}
-          {...rest}
-        />
+        {rest.multiline ? (
+          <textarea
+            ref={ref}
+            id={inputId}
+            className={cn(
+              'min-h-[100px] w-full bg-transparent py-2.5 text-sm text-ink placeholder:text-ink-soft',
+              'focus:outline-none focus:ring-0',
+              className,
+            )}
+            {...(({ multiline, ...r }) => r)(rest)}
+          />
+        ) : (
+          <input
+            ref={ref}
+            id={inputId}
+            className={cn(
+              'h-11 w-full bg-transparent text-sm text-ink placeholder:text-ink-soft',
+              'focus:outline-none',
+              className,
+            )}
+            {...rest}
+          />
+        )}
         {rightIcon && <span className="text-ink-muted">{rightIcon}</span>}
       </div>
       {error ? (

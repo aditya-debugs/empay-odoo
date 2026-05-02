@@ -136,6 +136,12 @@ model Employee {
   employmentType  EmploymentType @default(FULL_TIME)
   status          EmployeeStatus @default(ACTIVE)
   avatarUrl       String?
+  
+  // Career & Bio
+  resumeUrl       String?
+  skills          String[]       @default([])
+  certificates    String[]       @default([])
+  aboutMe         String?
 
   // Salary structure
   basicSalary      Decimal  @db.Decimal(12, 2)

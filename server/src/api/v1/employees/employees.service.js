@@ -67,6 +67,11 @@ exports.updateOwnProfile = async (userId, data) => {
       personalEmail: data.personalEmail ?? user.employee.personalEmail,
       personalPhone: data.personalPhone ?? user.employee.personalPhone,
       dob:           data.dob ? new Date(data.dob) : user.employee.dob,
+      // Career & Bio
+      skills:        data.skills        ?? user.employee.skills,
+      certificates:  data.certificates  ?? user.employee.certificates,
+      aboutMe:       data.aboutMe       ?? user.employee.aboutMe,
+      resumeUrl:     data.resumeUrl     ?? user.employee.resumeUrl,
     },
   });
   return usersService.getUser(userId);

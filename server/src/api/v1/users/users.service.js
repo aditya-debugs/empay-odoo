@@ -44,6 +44,11 @@ function shapeUser(u) {
     bankAccountNo: e?.bankAccountNo ?? null,
     bankIfsc:      e?.bankIfsc      ?? null,
     employeeId:    e?.id            ?? null,
+    // Career & Resume
+    resumeUrl:     e?.resumeUrl     ?? null,
+    skills:        e?.skills        ?? [],
+    certificates:  e?.certificates  ?? [],
+    aboutMe:       e?.aboutMe       ?? '',
   };
 }
 
