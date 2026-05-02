@@ -42,15 +42,28 @@ async function registerAdmin({ email, password, name, companyName, phone }) {
 }
 
 async function login({ identifier, password }) {
+  const cleanIdentifier = identifier?.trim();
+  console.log(`Attempting login for: "${cleanIdentifier}" (Password length: ${password?.length})`);
+  
   const user = await prisma.user.findFirst({
-    where: { OR: [{ email: identifier }, { loginId: identifier }] },
+    where: { 
+      OR: [
+        { email: { equals: cleanIdentifier, mode: 'insensitive' } }, 
+        { loginId: { equals: cleanIdentifier, mode: 'insensitive' } }
+      ] 
+    },
   });
+
   if (!user || !user.isActive) {
+    console.log('User not found or inactive');
     const err = new Error('Invalid credentials');
     err.status = 401;
     throw err;
   }
+
   const ok = await comparePassword(password, user.passwordHash);
+  console.log(`Password comparison for ${user.email}: ${ok}`);
+  
   if (!ok) {
     const err = new Error('Invalid credentials');
     err.status = 401;
@@ -62,7 +75,29 @@ async function login({ identifier, password }) {
 }
 
 async function getMe(userId) {
-  return prisma.user.findUnique({ where: { id: userId }, select: PUBLIC_USER_FIELDS });
+  return prisma.user.findUnique({
+    where: { id: userId },
+    select: { ...PUBLIC_USER_FIELDS, employee: true },
+  });
 }
 
-module.exports = { adminExists, registerAdmin, login, getMe };
+async function changePassword(userId, { currentPassword, newPassword }) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new Error('User not found');
+
+  const ok = await comparePassword(currentPassword, user.passwordHash);
+  if (!ok) {
+    const err = new Error('Incorrect current password');
+    err.status = 400;
+    throw err;
+  }
+
+  const passwordHash = await hashPassword(newPassword);
+  return prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash, mustChangePassword: false },
+    select: PUBLIC_USER_FIELDS
+  });
+}
+
+module.exports = { adminExists, registerAdmin, login, getMe, changePassword };

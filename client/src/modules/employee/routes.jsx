@@ -1,17 +1,21 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { ComingSoon } from '../../features/ui';
 import EmployeeDashboard from './pages/EmployeeDashboard';
+import MyProfilePage from './pages/MyProfilePage';
+import EmployeeDirectoryPage from './pages/EmployeeDirectoryPage';
+import AttendancePage from './pages/AttendancePage';
+import LeavesPage from './pages/LeavesPage';
+import PayslipsPage from './pages/PayslipsPage';
 
 export default function EmployeeRoutes() {
   return (
     <Routes>
       <Route index element={<Navigate to="dashboard" replace />} />
       <Route path="dashboard"  element={<EmployeeDashboard />} />
-      <Route path="profile"    element={<ComingSoon title="My Profile" hint="Resume, private info, security, avatar upload, bank details." />} />
-      <Route path="directory"  element={<ComingSoon title="Employee Directory" hint="Read-only directory cards + search." />} />
-      <Route path="attendance" element={<ComingSoon title="My Attendance" hint="Check-in/out, attendance history, extra hours." />} />
-      <Route path="leaves"     element={<ComingSoon title="Time Off" hint="Apply for leave, balances, request history." />} />
-      <Route path="payslips"   element={<ComingSoon title="Payslips" hint="Listing, PDF download, raise dispute." />} />
+      <Route path="profile"    element={<MyProfilePage />} />
+      <Route path="directory"  element={<EmployeeDirectoryPage />} />
+      <Route path="attendance" element={<AttendancePage />} />
+      <Route path="leaves"     element={<LeavesPage />} />
+      <Route path="payslips"   element={<PayslipsPage />} />
       <Route path="*"          element={<Navigate to="dashboard" replace />} />
     </Routes>
   );

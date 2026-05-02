@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Plus, Plane } from 'lucide-react';
 import { Avatar, Button } from '../../../features/ui';
-import { employees, DEPARTMENTS, ROLES } from '../../../features/employees/employeeMocks';
+import { DEPARTMENTS, ROLES } from '../../../features/employees/employeeMocks';
+import api from '../../../services/api';
 
 function StatusIndicator({ status }) {
   if (status === 'ON_LEAVE') {
@@ -28,24 +29,32 @@ function StatusIndicator({ status }) {
 
 export default function EmployeesPage() {
   const navigate = useNavigate();
+  const [employeesList, setEmployeesList] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [department, setDepartment] = useState('');
   const [role, setRole] = useState('');
 
-  const filtered = useMemo(() => {
-    return employees.filter((e) => {
-      if (department && e.department !== department) return false;
-      if (role && e.role !== role) return false;
-      if (query) {
-        const q = query.toLowerCase();
-        const fullName = `${e.firstName} ${e.lastName}`.toLowerCase();
-        if (!fullName.includes(q) && !e.position.toLowerCase().includes(q) && !e.loginId.toLowerCase().includes(q)) {
-          return false;
-        }
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await api.get(`/employees?search=${query}&role=${role}`);
+        setEmployeesList(res.employees || []);
+        setTotal(res.total || 0);
+      } catch (err) {
+        console.error('Failed to fetch employees', err);
+      } finally {
+        setLoading(false);
       }
-      return true;
-    });
-  }, [query, department, role]);
+    })();
+  }, [query, role]); // Refresh when search or role changes
+
+  const filtered = employeesList.filter((e) => {
+    if (department && e.department !== department) return false;
+    return true;
+  });
 
   return (
     <div className="px-8 py-8">
@@ -54,7 +63,7 @@ export default function EmployeesPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Employees</h1>
           <p className="mt-1 text-sm text-ink-muted">
-            {filtered.length} of {employees.length} employees
+            {filtered.length} of {total} employees
           </p>
         </div>
         <Button

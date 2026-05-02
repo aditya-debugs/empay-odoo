@@ -109,7 +109,7 @@ export default function AdminDashboard() {
     { label: 'Total Employees', value: String(data?.stats?.totalEmployees || 0), sub: 'Active', tone: 'up', icon: Users },
     { label: 'Present Today', value: String(data?.stats?.presentToday || 0), sub: 'Today', tone: 'up', icon: UserCheck },
     { label: 'Pending Leaves', value: String(data?.stats?.pendingLeaves || 0), sub: 'Awaiting approval', tone: 'warn', icon: CalendarClock },
-    { label: 'Payroll Due', value: '₹0', sub: 'Calculated monthly', tone: 'warn', icon: IndianRupee },
+    { label: 'Payroll Due', value: `₹${(data?.stats?.payrollDue || 0).toLocaleString()}`, sub: 'Monthly total', tone: 'warn', icon: IndianRupee },
   ];
 
   return (

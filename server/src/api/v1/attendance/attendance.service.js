@@ -128,5 +128,29 @@ async function getAttendanceHistory(userId, limit = 30, offset = 0) {
   return { records, total, limit, offset };
 }
 
-module.exports = { checkIn, checkOut, getAttendanceHistory };
+async function listAllAttendance({ date, search } = {}) {
+  const targetDate = date ? new Date(date) : new Date();
+  targetDate.setHours(0, 0, 0, 0);
+
+  const where = {
+    date: targetDate,
+    employee: search ? {
+      user: { name: { contains: search, mode: 'insensitive' } }
+    } : undefined
+  };
+
+  const records = await prisma.attendance.findMany({
+    where,
+    include: { 
+      employee: { 
+        include: { user: { select: { name: true, email: true } } } 
+      } 
+    },
+    orderBy: { checkIn: 'desc' }
+  });
+
+  return { records };
+}
+
+module.exports = { checkIn, checkOut, getAttendanceHistory, listAllAttendance };
 

@@ -2,8 +2,13 @@ const service = require('./employees.service');
 
 exports.listEmployees = async (req, res, next) => {
   try {
-    const { search = '', limit = 50, offset = 0 } = req.query;
-    const result = await service.listEmployees(search, parseInt(limit), parseInt(offset));
+    const { search = '', role, limit = 50, offset = 0 } = req.query;
+    const result = await service.listEmployees({ 
+      search, 
+      role, 
+      limit: parseInt(limit), 
+      offset: parseInt(offset) 
+    });
     res.json(result);
   } catch (e) { next(e); }
 };

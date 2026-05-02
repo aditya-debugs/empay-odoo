@@ -68,6 +68,24 @@ async function createUser(creatorId, data) {
           bankIfsc,
         }
       });
+      // Add default leave allocations
+      const year = new Date().getFullYear();
+      const defaultAllocations = [
+        { type: 'PAID_LEAVE',   totalDays: 20 },
+        { type: 'SICK_LEAVE',   totalDays: 10 },
+        { type: 'CASUAL_LEAVE', totalDays: 8  },
+      ];
+
+      await Promise.all(defaultAllocations.map(alloc => 
+        tx.leaveAllocation.create({
+          data: {
+            employeeId: employee.id,
+            type: alloc.type,
+            year: year,
+            totalDays: alloc.totalDays,
+          }
+        })
+      ));
     }
 
     return { user, employee };

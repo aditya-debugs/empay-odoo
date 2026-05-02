@@ -4,6 +4,8 @@ import AdminDashboard from './pages/AdminDashboard';
 import EmployeesPage from './pages/EmployeesPage';
 import CreateEmployeePage from './pages/CreateEmployeePage';
 import EmployeeProfilePage from './pages/EmployeeProfilePage';
+import LeaveApprovalPage from './pages/LeaveApprovalPage';
+import AttendanceDirectoryPage from './pages/AttendanceDirectoryPage';
 
 export default function AdminRoutes() {
   return (
@@ -17,8 +19,8 @@ export default function AdminRoutes() {
       <Route path="employees/:id"    element={<EmployeeProfilePage />} />
 
       <Route path="users"      element={<ComingSoon title="Users & Roles" hint="Role summary table, role changes, deactivation. Builds on top of Employees." />} />
-      <Route path="attendance" element={<ComingSoon title="Attendance" hint="Daily / weekly / monthly views, manual override." />} />
-      <Route path="leaves"     element={<ComingSoon title="Time Off" hint="Approval queue, policies, balance allocation." />} />
+      <Route path="attendance" element={<AttendanceDirectoryPage />} />
+      <Route path="leaves"     element={<LeaveApprovalPage />} />
       <Route path="payroll"    element={<ComingSoon title="Payroll Override" hint="Reopen, bonus injection, dispute queue." />} />
       <Route path="reports"    element={<ComingSoon title="Reports" hint="Attendance, leave, payroll, headcount with exports." />} />
       <Route path="settings"   element={<ComingSoon title="Settings" hint="Company, attendance, payroll, leave, holidays." />} />

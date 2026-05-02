@@ -26,14 +26,15 @@ export default function MyProfilePage() {
       try {
         const data = await api.get('/auth/me');
         setProfile(data.user);
+        const emp = data.user.employee || {};
         setFormData({
-          firstName: data.user.firstName || '',
-          lastName: data.user.lastName || '',
-          phone: data.user.phone || '',
-          dob: data.user.dob || '',
-          bankName: data.user.bankName || '',
-          bankAccountNo: data.user.bankAccountNo || '',
-          bankIfsc: data.user.bankIfsc || ''
+          firstName: emp.firstName || '',
+          lastName: emp.lastName || '',
+          phone: emp.phone || '',
+          dob: emp.dob ? new Date(emp.dob).toISOString().split('T')[0] : '',
+          bankName: emp.bankName || '',
+          bankAccountNo: emp.bankAccountNo || '',
+          bankIfsc: emp.bankIfsc || ''
         });
       } catch (err) {
         setError(err.message || 'Failed to load profile');
@@ -80,6 +81,32 @@ export default function MyProfilePage() {
       setSuccess('Bank details updated successfully');
     } catch (err) {
       setError(err.message || 'Failed to save bank details');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (formData.newPassword !== formData.confirmPassword) {
+      return setError('New passwords do not match');
+    }
+    setSaving(true);
+    setError('');
+    setSuccess('');
+    try {
+      await api.post('/auth/change-password', {
+        currentPassword: formData.currentPassword,
+        newPassword: formData.newPassword
+      });
+      setSuccess('Password updated successfully');
+      setFormData(prev => ({
+        ...prev,
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      }));
+    } catch (err) {
+      setError(err.message || 'Failed to change password');
     } finally {
       setSaving(false);
     }
@@ -201,9 +228,39 @@ export default function MyProfilePage() {
 
       {/* Security Tab */}
       {activeTab === 'security' && (
-        <Card className="mt-6 p-6">
-          <p className="text-sm text-ink-muted mb-4">Security features coming soon</p>
-          <Button disabled>Change Password</Button>
+        <Card className="mt-6 p-6 max-w-md">
+          <h2 className="text-lg font-semibold mb-4">Change Password</h2>
+          <div className="space-y-4">
+            <Input
+              label="Current Password"
+              type="password"
+              placeholder="••••••••"
+              value={formData.currentPassword || ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, currentPassword: e.target.value }))}
+            />
+            <Input
+              label="New Password"
+              type="password"
+              placeholder="••••••••"
+              value={formData.newPassword || ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, newPassword: e.target.value }))}
+            />
+            <Input
+              label="Confirm New Password"
+              type="password"
+              placeholder="••••••••"
+              value={formData.confirmPassword || ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+            />
+          </div>
+          <Button
+            onClick={handleChangePassword}
+            loading={saving}
+            className="mt-6 w-full"
+            leftIcon={<Save className="h-4 w-4" />}
+          >
+            Update Password
+          </Button>
         </Card>
       )}
     </div>

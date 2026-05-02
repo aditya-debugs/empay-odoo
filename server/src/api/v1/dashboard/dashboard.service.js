@@ -29,7 +29,7 @@ async function getEmployeeDashboard(userId) {
 
   const presentDays = attendance.filter(a => a.status === 'PRESENT').length;
   const absentDays = attendance.filter(a => a.status === 'ABSENT').length;
-  const totalHours = attendance.reduce((sum, a) => sum + (a.hoursWorked || 0), 0);
+  const totalHours = attendance.reduce((sum, a) => sum + Number(a.hoursWorked || 0), 0);
 
   // Leave allocations for current year
   const leaveAllocations = await prisma.leaveAllocation.findMany({
@@ -59,7 +59,7 @@ async function getEmployeeDashboard(userId) {
     attendance: {
       present: presentDays,
       absent: absentDays,
-      totalHours: parseFloat(totalHours.toFixed(2)),
+      totalHours: Number(totalHours.toFixed(2)),
       month: `${now.toLocaleString('default', { month: 'long' })} ${now.getFullYear()}`
     },
     leaves: leaveAllocations.map(la => ({
@@ -101,6 +101,13 @@ async function getAdminDashboard() {
     where: { status: 'PENDING' }
   });
 
+  // Payroll due calculation (sum of basic salaries of active employees)
+  const payrollAgg = await prisma.employee.aggregate({
+    _sum: { basicSalary: true },
+    where: { status: 'ACTIVE' }
+  });
+  const payrollDue = Number(payrollAgg._sum.basicSalary || 0);
+
   // Department headcount
   const departments = await prisma.employee.groupBy({
     by: ['department'],
@@ -120,7 +127,7 @@ async function getAdminDashboard() {
       totalEmployees,
       presentToday,
       pendingLeaves,
-      payrollDue: 0 // Placeholder
+      payrollDue
     },
     departments: departments.map(d => ({
       label: d.department || 'Unassigned',

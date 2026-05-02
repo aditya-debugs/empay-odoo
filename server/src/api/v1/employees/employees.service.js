@@ -1,8 +1,9 @@
 const prisma = require('../../../config/prisma');
 
-async function listEmployees(search = '', limit = 50, offset = 0) {
+async function listEmployees({ search = '', role, limit = 50, offset = 0 } = {}) {
   const where = {
     status: 'ACTIVE',
+    user: role ? { role } : undefined,
     OR: search ? [
       { user: { name: { contains: search, mode: 'insensitive' } } },
       { user: { email: { contains: search, mode: 'insensitive' } } },

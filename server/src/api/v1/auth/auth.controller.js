@@ -28,4 +28,11 @@ exports.me = async (req, res, next) => {
   } catch (e) { next(e); }
 };
 
+exports.changePassword = async (req, res, next) => {
+  try {
+    const user = await service.changePassword(req.user.id, req.body);
+    res.json({ message: 'Password changed successfully', user });
+  } catch (e) { next(e); }
+};
+
 exports.logout = (_req, res) => res.status(204).end();

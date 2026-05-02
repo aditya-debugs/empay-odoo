@@ -1,46 +1,57 @@
 const prisma = require('../../../config/prisma');
 
-async function applyLeave(userId, data) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: { employee: true }
+async function getMyLeaves(userId) {
+  const employee = await prisma.employee.findUnique({
+    where: { userId }
+  });
+  if (!employee) throw new Error('Employee not found');
+
+  const leaves = await prisma.leave.findMany({
+    where: { employeeId: employee.id },
+    orderBy: { createdAt: 'desc' }
   });
 
-  if (!user || !user.employee) {
-    const err = new Error('Employee record not found');
-    err.status = 404;
-    throw err;
-  }
+  return { leaves };
+}
 
-  const startDate = new Date(data.startDate);
-  const endDate = new Date(data.endDate);
-  const daysDiff = (endDate - startDate) / (1000 * 60 * 60 * 24) + 1;
+async function getMyLeaveBalance(userId) {
+  const employee = await prisma.employee.findUnique({
+    where: { userId }
+  });
+  if (!employee) throw new Error('Employee not found');
 
-  // Check leave allocation
-  const allocation = await prisma.leaveAllocation.findUnique({
-    where: {
-      employeeId_type_year: {
-        employeeId: user.employee.id,
-        type: data.type,
-        year: new Date().getFullYear()
-      }
+  const balances = await prisma.leaveAllocation.findMany({
+    where: { 
+      employeeId: employee.id,
+      year: new Date().getFullYear()
     }
   });
 
-  if (!allocation || allocation.usedDays + daysDiff > allocation.totalDays) {
-    const err = new Error('Insufficient leave balance');
-    err.status = 400;
-    throw err;
-  }
+  return { balances };
+}
+
+async function applyLeave(userId, data) {
+  const { type, startDate, endDate, reason } = data;
+  
+  const employee = await prisma.employee.findUnique({
+    where: { userId }
+  });
+  if (!employee) throw new Error('Employee not found');
+
+  // Calculate days (simple difference)
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const diffTime = Math.abs(end - start);
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
   const leave = await prisma.leave.create({
     data: {
-      employeeId: user.employee.id,
-      type: data.type,
-      startDate,
-      endDate,
-      days: daysDiff,
-      reason: data.reason,
+      employeeId: employee.id,
+      type,
+      startDate: start,
+      endDate: end,
+      days: diffDays,
+      reason,
       status: 'PENDING'
     }
   });
@@ -48,54 +59,27 @@ async function applyLeave(userId, data) {
   return leave;
 }
 
-async function getLeaveHistory(userId, limit = 50, offset = 0) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: { employee: true }
-  });
-
-  if (!user || !user.employee) {
-    const err = new Error('Employee record not found');
-    err.status = 404;
-    throw err;
-  }
-
-  const leaves = await prisma.leave.findMany({
-    where: { employeeId: user.employee.id },
-    include: { approvedBy: { select: { name: true } } },
-    take: limit,
-    skip: offset,
+async function getLeaveQueue() {
+  return prisma.leave.findMany({
+    include: { 
+      employee: { 
+        include: { user: { select: { name: true } } } 
+      } 
+    },
     orderBy: { createdAt: 'desc' }
   });
-
-  const total = await prisma.leave.count({
-    where: { employeeId: user.employee.id }
-  });
-
-  return { leaves, total, limit, offset };
 }
 
-async function getLeaveBalance(userId) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: { employee: true }
-  });
-
-  if (!user || !user.employee) {
-    const err = new Error('Employee record not found');
-    err.status = 404;
-    throw err;
-  }
-
-  const balances = await prisma.leaveAllocation.findMany({
-    where: {
-      employeeId: user.employee.id,
-      year: new Date().getFullYear()
+async function updateLeaveStatus(leaveId, approvedById, { status, adminNote }) {
+  return prisma.leave.update({
+    where: { id: leaveId },
+    data: {
+      status,
+      approvedById,
+      approvedAt: new Date(),
+      reviewNote: adminNote
     }
   });
-
-  return balances;
 }
 
-module.exports = { applyLeave, getLeaveHistory, getLeaveBalance };
-
+module.exports = { getMyLeaves, getMyLeaveBalance, applyLeave, getLeaveQueue, updateLeaveStatus };

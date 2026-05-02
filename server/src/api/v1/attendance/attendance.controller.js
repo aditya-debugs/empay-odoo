@@ -22,5 +22,13 @@ exports.getHistory = async (req, res, next) => {
   } catch (e) { next(e); }
 };
 
+exports.listAll = async (req, res, next) => {
+  try {
+    const { date, search } = req.query;
+    const result = await service.listAllAttendance({ date, search });
+    res.json(result);
+  } catch (e) { next(e); }
+};
+
 module.exports = exports;
 

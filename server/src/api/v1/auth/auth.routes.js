@@ -11,7 +11,6 @@ router.post('/register-admin', validate(registerAdminSchema), ctrl.registerAdmin
 router.post('/login', validate(loginSchema), ctrl.login);
 router.post('/logout', ctrl.logout);
 router.get('/me', requireAuth, ctrl.me);
+router.post('/change-password', requireAuth, ctrl.changePassword);
 
-// TODO (Phase 2): /refresh-token, /forgot-password, /reset-password,
-//                 /change-password, /verify-email
 module.exports = router;

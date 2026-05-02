@@ -1,16 +1,20 @@
 const { Router } = require('express');
-const ctrl = require('./leave.controller');
 const { requireAuth, requireRole } = require('../../../middleware/auth');
+const ctrl = require('./leave.controller');
 
 const router = Router();
 
-// POST /apply — Apply for leave [EMPLOYEE]
-router.post('/apply', requireAuth, requireRole('EMPLOYEE'), ctrl.applyLeave);
+// GET /me — List own leave history [EMPLOYEE, HR, PAYROLL]
+router.get('/me', requireAuth, ctrl.getMyLeaves);
 
-// GET /me — My leave history [EMPLOYEE]
-router.get('/me', requireAuth, requireRole('EMPLOYEE'), ctrl.getHistory);
+// GET /balance — List own leave balance
+router.get('/balance', requireAuth, ctrl.getMyBalance);
 
-// GET /balance — My leave balance [EMPLOYEE]
-router.get('/balance', requireAuth, requireRole('EMPLOYEE'), ctrl.getBalance);
+// POST /apply — Create leave request
+router.post('/apply', requireAuth, requireRole('EMPLOYEE'), ctrl.apply);
+
+// Admin/HR routes for approval
+router.get('/queue', requireAuth, requireRole('ADMIN', 'HR_OFFICER'), ctrl.listQueue);
+router.patch('/:id/status', requireAuth, requireRole('ADMIN', 'HR_OFFICER'), ctrl.updateStatus);
 
 module.exports = router;
