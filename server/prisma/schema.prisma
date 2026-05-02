@@ -170,7 +170,6 @@ model Employee {
   leaves           Leave[]
   leaveAllocations LeaveAllocation[]
   payslips         Payslip[]
-  Payroll          Payroll[]
 
   @@index([department])
   @@index([status])
@@ -243,19 +242,14 @@ model Attendance {
   date        DateTime         @db.Date
   checkIn     DateTime?
   checkOut    DateTime?
-  hoursWorked Decimal?         @db.Decimal(5, 2)
+  hoursWorked Decimal?         @db.Decimal(10, 6)
   status      AttendanceStatus
   notes       String?
 
-<<<<<<< HEAD
   logs         AttendanceLog[]
 
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
-=======
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
->>>>>>> 366a9fcab373ec584e622f5352e91aa79ae9ec57
 
   regularization AttendanceRegularization?
 
@@ -356,27 +350,18 @@ model Payslip {
   paidDays    Decimal? @db.Decimal(5, 2)
   lopDays     Decimal? @db.Decimal(5, 2)
 
-<<<<<<< HEAD
-  basicSalary    Decimal        @db.Decimal(12, 2)
-  grossSalary    Decimal        @db.Decimal(12, 2)
-  totalDeductions Decimal       @db.Decimal(12, 2)
-  netSalary       Decimal        @db.Decimal(12, 2)
-  cappedAtZero    Boolean        @default(false)
-  
-=======
   basicSalary     Decimal @db.Decimal(12, 2)
   grossSalary     Decimal @db.Decimal(12, 2)
   totalDeductions Decimal @db.Decimal(12, 2)
   netSalary       Decimal @db.Decimal(12, 2)
+  cappedAtZero    Boolean @default(false)
 
->>>>>>> 366a9fcab373ec584e622f5352e91aa79ae9ec57
   // Detailed line items — extend in your slice
   earnings   Json? // [{ label, amount }]
   deductions Json? // [{ label, amount }]
 
   status PayslipStatus @default(DRAFT)
   pdfUrl String?
-  cappedAtZero Boolean @default(false)
 
   createdById String?
   createdBy   User?   @relation("PayslipCreator", fields: [createdById], references: [id])
@@ -411,6 +396,3 @@ model PayslipDispute {
   @@index([status])
 }
 
-model Payroll {
-  id String @id @default(uuid())
-}

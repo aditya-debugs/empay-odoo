@@ -63,8 +63,35 @@ export default function LeavesPage() {
     setSuccess('');
 
     // Frontend Validation
+    if (!formData.startDate || !formData.endDate) {
+      setError('Please select both a start date and an end date.');
+      setSubmitting(false);
+      return;
+    }
+
     const start = new Date(formData.startDate);
     const end = new Date(formData.endDate);
+    const startYear = start.getFullYear();
+    const endYear = end.getFullYear();
+    const currentYear = new Date().getFullYear();
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      setError('Invalid date entered. Please check and re-enter the dates.');
+      setSubmitting(false);
+      return;
+    }
+
+    if (startYear < 2000 || startYear > currentYear + 2) {
+      setError(`Invalid start year "${startYear}". Please enter a valid year (e.g. ${currentYear}).`);
+      setSubmitting(false);
+      return;
+    }
+
+    if (endYear < 2000 || endYear > currentYear + 2) {
+      setError(`Invalid end year "${endYear}". Please enter a valid year (e.g. ${currentYear}).`);
+      setSubmitting(false);
+      return;
+    }
 
     if (end < start) {
       setError('Invalid Dates: End date cannot be earlier than start date.');

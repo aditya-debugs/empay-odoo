@@ -59,16 +59,12 @@ export default function AttendancePage() {
       const todayRecord = records.find(r => r.date.split('T')[0] === todayString);
       setTodayStatus(todayRecord);
 
-      // Status check from newest logs (DESC)
-      if (todayRecord?.logs && todayRecord.logs.length > 0) {
-        const latest = todayRecord.logs[0];
-        if (latest.type === 'IN') {
-           const startTime = new Date(latest.timestamp).getTime();
-           startActiveTimer(startTime);
-        } else {
-           clearActiveTimer();
-           setLiveSessionMs(0);
-        }
+      // Check the latest log — if it's an IN with no matching OUT, start live timer
+      const logs = todayRecord?.logs || [];
+      const lastLog = logs[logs.length - 1];
+      if (lastLog?.type === 'IN') {
+        const startTime = new Date(lastLog.timestamp).getTime();
+        startActiveTimer(startTime);
       } else {
         clearActiveTimer();
         setLiveSessionMs(0);
@@ -112,9 +108,27 @@ export default function AttendancePage() {
     }
   };
 
-  const finishedMs = parseFloat(todayStatus?.hoursWorked || 0) * 1000 * 60 * 60;
-  const totalMs = finishedMs + liveSessionMs;
-  
+  const todayLogs = todayStatus?.logs || [];
+  const lastLog = todayLogs[todayLogs.length - 1];
+  const sessionCount = todayLogs.filter(l => l.type === 'IN').length;
+
+  // Compute finished ms directly from completed IN/OUT log pairs — avoids DB rounding loss
+  const completedMs = (() => {
+    let total = 0;
+    let lastIn = null;
+    for (const log of todayLogs) {
+      if (log.type === 'IN') {
+        lastIn = new Date(log.timestamp).getTime();
+      } else if (log.type === 'OUT' && lastIn !== null) {
+        total += new Date(log.timestamp).getTime() - lastIn;
+        lastIn = null;
+      }
+    }
+    return total;
+  })();
+  const finishedMs = completedMs;
+  const totalMs = completedMs + liveSessionMs;
+
   const formatTime = (ms) => {
     const totalSeconds = Math.floor(ms / 1000);
     const hours = Math.floor(totalSeconds / 3600);
@@ -127,12 +141,10 @@ export default function AttendancePage() {
   const formattedLive = formatTime(liveSessionMs);
   const formattedFinished = formatTime(finishedMs);
 
-  const filteredHistory = attendance.filter(r => 
+  const filteredHistory = attendance.filter(r =>
     new Date(r.date).toLocaleDateString().includes(localSearch) ||
     r.status.toLowerCase().includes(localSearch.toLowerCase())
   );
-
-  const lastProcessedAction = todayStatus?.logs?.[0];
 
   if (loading) return <div className="flex h-full items-center justify-center text-ink-muted">Validating Shift History...</div>;
 
@@ -169,7 +181,7 @@ export default function AttendancePage() {
                  <div className="flex flex-col">
                     <span className="text-[9px] font-bold text-ink-soft uppercase tracking-widest leading-none mb-1">Punch Status</span>
                     <span className="text-[11px] font-bold text-ink uppercase tracking-wider">
-                        {isTimerRunning ? 'Shift in Progress' : 'Shift Not Started'}
+                        {isTimerRunning ? `Session ${sessionCount} In Progress` : sessionCount > 0 ? `${sessionCount} Session(s) Completed` : 'Shift Not Started'}
                     </span>
                  </div>
               </div>
@@ -242,14 +254,16 @@ export default function AttendancePage() {
                  </div>
               </div>
 
-              {lastProcessedAction && (
+              {lastLog && (
                 <div className="flex items-center gap-3 p-4 bg-surface-muted/30 rounded-xl border border-dashed border-border">
                     <div className="p-2 bg-white rounded-lg text-ink-muted">
                         <List className="h-3 w-3" />
                     </div>
                     <div>
-                        <p className="text-[9px] font-bold text-ink-soft uppercase tracking-widest">Last Recorded Action</p>
-                        <p className="text-[10px] font-bold text-ink uppercase mt-0.5">{lastProcessedAction.type} at {new Date(lastProcessedAction.timestamp).toLocaleTimeString()}</p>
+                        <p className="text-[9px] font-bold text-ink-soft uppercase tracking-widest">Sessions Today: {sessionCount}</p>
+                        <p className={`text-[10px] font-bold uppercase mt-0.5 ${lastLog.type === 'IN' ? 'text-success-600' : 'text-danger-600'}`}>
+                          Last: {lastLog.type} at {new Date(lastLog.timestamp).toLocaleTimeString()}
+                        </p>
                     </div>
                 </div>
               )}
@@ -270,22 +284,31 @@ export default function AttendancePage() {
         </div>
         <div className="p-6 max-h-64 overflow-y-auto">
           <div className="space-y-4 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-px before:bg-border">
-            {todayStatus?.logs?.map((log, idx) => (
-              <div key={idx} className="relative pl-8 animate-in fade-in slide-in-from-left-2 duration-300" style={{ animationDelay: `${idx*100}ms` }}>
-                <div className={`absolute left-0 top-1.5 h-2.5 w-2.5 rounded-full border-2 border-white shadow-sm ring-2 ring-transparent transition-all ${log.type === 'IN' ? 'bg-success-500' : 'bg-danger-500'}`} />
+            {todayLogs.length > 0 ? todayLogs.map((log, idx) => (
+              <div key={log.id || idx} className="relative pl-8 animate-in fade-in slide-in-from-left-2 duration-300" style={{ animationDelay: `${idx * 60}ms` }}>
+                <div className={`absolute left-0 top-1.5 h-2.5 w-2.5 rounded-full border-2 border-white shadow-sm ring-2 ring-transparent ${log.type === 'IN' ? 'bg-success-500' : 'bg-danger-500'}`} />
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded shadow-sm ${log.type === 'IN' ? 'bg-success-50 text-success-700 ring-1 ring-success-100' : 'bg-danger-50 text-danger-700 ring-1 ring-danger-100'}`}>{log.type}</span>
-                    <span className="text-[11px] text-ink font-bold uppercase tracking-tight opacity-70">Shift Marker Verified</span>
+                    <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded shadow-sm ${log.type === 'IN' ? 'bg-success-50 text-success-700 ring-1 ring-success-100' : 'bg-danger-50 text-danger-700 ring-1 ring-danger-100'}`}>
+                      {log.type}
+                    </span>
+                    <span className="text-[11px] text-ink font-bold uppercase tracking-tight opacity-70">
+                      {log.type === 'IN' ? 'Session Started' : 'Session Ended'}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Clock className="h-3 w-3 text-ink-muted" />
-                    <span className="text-[10px] font-bold text-ink-muted font-mono">{new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                    <span className="text-[10px] font-bold text-ink-muted font-mono">
+                      {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    </span>
                   </div>
                 </div>
               </div>
-            ))}
-            {!todayStatus?.logs?.length && <div className="text-center py-10 text-[10px] font-bold text-ink-soft uppercase tracking-widest italic">Initialize session to view log history</div>}
+            )) : (
+              <div className="text-center py-10 text-[10px] font-bold text-ink-soft uppercase tracking-widest italic">
+                Initialize session to view log history
+              </div>
+            )}
           </div>
         </div>
       </Card>

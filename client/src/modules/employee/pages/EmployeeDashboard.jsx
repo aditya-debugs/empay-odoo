@@ -136,29 +136,31 @@ export default function EmployeeDashboard() {
             <h2 className="text-sm font-bold uppercase tracking-widest text-ink-soft">Latest Records</h2>
             <Card className="p-5 border-none shadow-sm bg-white divide-y divide-border">
               {dashboard?.lastPayslip ? (
-                <div className="pb-4">
-                  <div className="flex justify-between items-start mb-4">
-                    <p className="text-xs font-bold text-ink">Recent Payslip</p>
-                    <span className="px-2 py-0.5 bg-success-50 text-success-600 text-[9px] font-bold rounded-full uppercase tracking-tighter">Verified</span>
+                <>
+                  <div className="pb-4">
+                    <div className="flex justify-between items-start mb-4">
+                      <p className="text-xs font-bold text-ink">Recent Payslip</p>
+                      <span className="px-2 py-0.5 bg-success-50 text-success-600 text-[9px] font-bold rounded-full uppercase tracking-tighter">Verified</span>
+                    </div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-ink-soft">Period</span>
+                      <span className="font-bold text-ink">{dashboard.lastPayslip.month}/{dashboard.lastPayslip.year}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-ink-soft">Status</span>
+                      <span className="font-bold text-brand-600 uppercase text-[10px]">{dashboard.lastPayslip.status}</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-ink-soft">Period</span>
-                    <span className="font-bold text-ink">{dashboard.lastPayslip.month}/{dashboard.lastPayslip.year}</span>
+                  <div>
+                    <p className="text-sm text-ink-muted">Net Salary</p>
+                    <p className="text-lg font-semibold mt-1">&#8377;{dashboard.lastPayslip.netSalary?.toLocaleString()}</p>
                   </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-ink-soft">Status</span>
-                    <span className="font-bold text-brand-600 uppercase text-[10px]">{dashboard.lastPayslip.status}</span>
+                  <div>
+                    <p className="text-sm text-ink-muted">Status</p>
+                    <p className="text-lg font-semibold mt-1 text-success-600">{dashboard.lastPayslip.status}</p>
                   </div>
-                </div>
-                <div>
-                  <p className="text-sm text-ink-muted">Net Salary</p>
-                  <p className="text-lg font-semibold mt-1">${dashboard.lastPayslip.netSalary?.toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-ink-muted">Status</p>
-                  <p className="text-lg font-semibold mt-1 text-success-600">{dashboard.lastPayslip.status}</p>
-                </div>
-              </div>
+                </>
+              ) : null}
             </Card>
           </div>
         </div>

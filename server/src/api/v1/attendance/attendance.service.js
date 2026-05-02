@@ -16,7 +16,7 @@ async function checkIn(userId) {
   const todayDate = new Date(today);
 
   return prisma.$transaction(async (tx) => {
-    // 1. Ensure Attendance summary record exists for today
+    // Upsert the attendance summary record for today
     const attendance = await tx.attendance.upsert({
       where: {
         employeeId_date: {
@@ -27,14 +27,16 @@ async function checkIn(userId) {
       create: {
         employeeId: user.employee.id,
         date: todayDate,
-        status: 'PRESENT'
+        status: 'PRESENT',
+        checkIn: new Date()
       },
       update: {
-        status: 'PRESENT'
+        status: 'PRESENT',
+        checkIn: new Date()
       }
     });
 
-    // 2. Add the IN log
+    // Add IN log entry
     await tx.attendanceLog.create({
       data: {
         attendanceId: attendance.id,
@@ -43,11 +45,9 @@ async function checkIn(userId) {
       }
     });
 
-    // 3. Update the main record's last checkIn (for display)
-    return tx.attendance.update({
+    return tx.attendance.findUnique({
       where: { id: attendance.id },
-      data: { checkIn: new Date() },
-      include: { logs: { orderBy: { timestamp: 'desc' } } }
+      include: { logs: { orderBy: { timestamp: 'asc' } } }
     });
   });
 }
@@ -75,38 +75,43 @@ async function checkOut(userId) {
           date: todayDate
         }
       },
-      include: { logs: { orderBy: { timestamp: 'desc' } } }
+      include: { logs: { orderBy: { timestamp: 'asc' } } }
     });
 
     if (!attendance) {
-      const err = new Error('No check-in found for today');
+      const err = new Error('No check-in found for today. Please check in first.');
       err.status = 400;
       throw err;
     }
 
-    // Add the OUT log
+    // Ensure the last log is an IN (can't check out twice in a row)
+    const lastLog = attendance.logs[attendance.logs.length - 1];
+    if (lastLog && lastLog.type === 'OUT') {
+      const err = new Error('You are already checked out. Please check in again to start a new session.');
+      err.status = 400;
+      throw err;
+    }
+
+    // Add OUT log
+    const checkOutTime = new Date();
     await tx.attendanceLog.create({
       data: {
         attendanceId: attendance.id,
         type: 'OUT',
-        timestamp: new Date()
+        timestamp: checkOutTime
       }
     });
 
-    // Calculate total hours worked for the day (Sum of all IN-OUT pairs)
-    const allLogs = await tx.attendanceLog.findMany({
-      where: { attendanceId: attendance.id },
-      orderBy: { timestamp: 'asc' }
-    });
-
+    // Recalculate total hours from all IN/OUT pairs
+    const allLogs = [...attendance.logs, { type: 'OUT', timestamp: checkOutTime }];
     let totalMs = 0;
     let lastIn = null;
 
     for (const log of allLogs) {
       if (log.type === 'IN') {
-        lastIn = log.timestamp;
-      } else if (log.type === 'OUT' && lastIn) {
-        totalMs += (log.timestamp - lastIn);
+        lastIn = new Date(log.timestamp).getTime();
+      } else if (log.type === 'OUT' && lastIn !== null) {
+        totalMs += new Date(log.timestamp).getTime() - lastIn;
         lastIn = null;
       }
     }
@@ -116,10 +121,10 @@ async function checkOut(userId) {
     return tx.attendance.update({
       where: { id: attendance.id },
       data: {
-        checkOut: new Date(),
-        hoursWorked: parseFloat(hoursWorked.toFixed(4))
+        checkOut: checkOutTime,
+        hoursWorked: parseFloat(hoursWorked.toFixed(6))
       },
-      include: { logs: { orderBy: { timestamp: 'desc' } } }
+      include: { logs: { orderBy: { timestamp: 'asc' } } }
     });
   });
 }
@@ -138,7 +143,7 @@ async function getAttendanceHistory(userId, limit = 30, offset = 0) {
 
   const records = await prisma.attendance.findMany({
     where: { employeeId: user.employee.id },
-    include: { logs: { orderBy: { timestamp: 'desc' } } },
+    include: { logs: { orderBy: { timestamp: 'asc' } } },
     take: limit,
     skip: offset,
     orderBy: { date: 'desc' }
@@ -164,11 +169,11 @@ async function listAllAttendance({ date, search } = {}) {
 
   const records = await prisma.attendance.findMany({
     where,
-    include: { 
-      employee: { 
-        include: { user: { select: { name: true, email: true } } } 
+    include: {
+      employee: {
+        include: { user: { select: { name: true, email: true } } }
       },
-      logs: { orderBy: { timestamp: 'desc' } }
+      logs: { orderBy: { timestamp: 'asc' } }
     },
     orderBy: { checkIn: 'desc' }
   });

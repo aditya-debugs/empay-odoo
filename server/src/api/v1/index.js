@@ -16,15 +16,18 @@ router.get('/health', async (_req, res) => {
 router.use('/auth', require('./auth/auth.routes'));
 
 // Skeletons — fill in as each module owner implements their slice
-router.use('/users',            require('./users/users.routes'));
-router.use('/employees',        require('./employees/employees.routes'));
-router.use('/attendance',       require('./attendance/attendance.routes'));
-router.use('/leave',            require('./leave/leave.routes'));
-router.use('/settings',         require('./settings/settings.routes'));
+router.use('/users',              require('./users/users.routes'));
+router.use('/employees',          require('./employees/employees.routes'));
+router.use('/attendance',         require('./attendance/attendance.routes'));
+router.use('/leave',              require('./leave/leave.routes'));
+router.use('/settings',           require('./settings/settings.routes'));
+router.use('/dashboard',          require('./dashboard/dashboard.routes'));
+router.use('/payslips',           require('./payslips/payslips.routes'));
+router.use('/payslip-disputes',   require('./payslip-disputes/payslip-disputes.routes'));
 
 // Unified Payroll Module (Phase 2)
 router.use('/', require('../payrollRoutes'));
-router.use('/reports',          require('./reports/reports.routes'));
-router.use('/upload',           require('./upload/upload.routes'));
+router.use('/reports',            require('./reports/reports.routes'));
+router.use('/upload',             require('./upload/upload.routes'));
 
 module.exports = router;

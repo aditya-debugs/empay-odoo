@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const prisma = new PrismaClient();
 
 function getOdooId(firstName, lastName, year, serial) {
-  const co = 'OI'; // Odoo India
+  const co = 'OI';
   const initials = (
     (firstName.slice(0, 2) || 'XX') + (lastName.slice(0, 2) || 'XX')
   ).toUpperCase();
@@ -17,9 +17,9 @@ async function main() {
   const companyName = 'Odoo India';
   const joinYear = 2023;
 
-  console.log('--- Cleaning up existing data (Safe Mode) ---');
+  console.log('--- Cleaning up existing data ---');
   try {
-    // Order of deletion to handle foreign key constraints
+    await prisma.attendanceLog.deleteMany();
     await prisma.attendanceRegularization.deleteMany();
     await prisma.attendance.deleteMany();
     await prisma.leave.deleteMany();
@@ -30,12 +30,12 @@ async function main() {
     await prisma.user.deleteMany();
     await prisma.orgSettings.deleteMany();
   } catch (err) {
-    console.log('Notice: Cleanup skipped or partially failed (this is normal if the DB is empty).');
+    console.log('Cleanup skipped (DB may be empty):', err.message);
   }
 
-  console.log('--- Seeding Roles with Odoo India Format ---');
+  console.log('--- Seeding Users ---');
 
-  // 1. Super Admin
+  // 1. Admin
   await prisma.user.create({
     data: {
       email: 'admin@empay.com',
@@ -50,9 +50,9 @@ async function main() {
 
   // 2. HR Staff
   const hrStaff = [
-    { f: 'Sarah', l: 'HR', email: 'sarah@empay.com' },
+    { f: 'Sarah',   l: 'HR',        email: 'sarah@empay.com' },
     { f: 'Michael', l: 'Recruiter', email: 'michael@empay.com' },
-    { f: 'Jessica', l: 'People', email: 'jessica@empay.com' },
+    { f: 'Jessica', l: 'People',    email: 'jessica@empay.com' },
   ];
 
   for (let i = 0; i < hrStaff.length; i++) {
@@ -71,8 +71,8 @@ async function main() {
 
   // 3. Payroll Staff
   const payrollStaff = [
-    { f: 'David', l: 'Finance', email: 'david@empay.com' },
-    { f: 'Emma', l: 'Accounts', email: 'emma@empay.com' },
+    { f: 'David', l: 'Finance',  email: 'david@empay.com' },
+    { f: 'Emma',  l: 'Accounts', email: 'emma@empay.com' },
   ];
 
   for (let i = 0; i < payrollStaff.length; i++) {
@@ -85,18 +85,21 @@ async function main() {
         role: 'PAYROLL_OFFICER',
         companyName,
         isActive: true,
-        mustChangePassword: false
       }
     });
-    console.log('Admin seeded: admin@empay.com / Password@123');
-  } else {
-    console.log('Admin already exists');
   }
 
-  const empEmail = 'employee@empay.com';
-  const existingEmp = await prisma.user.findUnique({ where: { email: empEmail } });
-  if (!existingEmp) {
-    const passwordHash = await bcrypt.hash('Password@123', 10);
+  // 4. Employees (15) with attendance + leave allocations
+  const depts      = ['Engineering', 'Sales', 'Marketing', 'Operations', 'Finance'];
+  const firstNames = ['John','Alice','Bob','Charlie','Diana','Edward','Fiona','George','Hannah','Ian','Julia','Kevin','Laura','Mark','Nancy'];
+  const lastNames  = ['Smith','Johnson','Williams','Brown','Jones','Garcia','Miller','Davis','Rodriguez','Martinez','Hernandez','Lopez','Gonzalez','Wilson','Anderson'];
+
+  for (let i = 0; i < 15; i++) {
+    const fName  = firstNames[i];
+    const lName  = lastNames[i];
+    const email  = `${fName.toLowerCase()}@empay.com`;
+    const loginId = getOdooId(fName, lName, joinYear, i + 1);
+
     const user = await prisma.user.create({
       data: {
         email,
@@ -112,66 +115,77 @@ async function main() {
     const basic = 35000 + (i * 2000);
     const employee = await prisma.employee.create({
       data: {
-        userId: user.id,
-        firstName: fName,
-        lastName: lName,
-        gender: i % 2 === 0 ? 'MALE' : 'FEMALE',
-        department: depts[i % depts.length],
-        position: 'Software Engineer',
-        joinDate: new Date('2023-01-15'),
-        dob: new Date('1992-08-12'),
-        basicSalary: basic,
-        hra: basic * 0.4,
-        conveyance: 1600,
+        userId:           user.id,
+        firstName:        fName,
+        lastName:         lName,
+        gender:           i % 2 === 0 ? 'MALE' : 'FEMALE',
+        department:       depts[i % depts.length],
+        position:         'Software Engineer',
+        joinDate:         new Date('2023-01-15'),
+        dob:              new Date('1992-08-12'),
+        basicSalary:      basic,
+        hra:              basic * 0.4,
+        conveyance:       1600,
         specialAllowance: 5000,
-        otherAllowance: 1000,
-        pfEnabled: true,
-        professionalTax: 200,
-        pan: `ABCDE${2000 + i}P`,
-        aadhaar: `44443333222${i}`,
-        bankName: 'ICICI Bank',
-        bankAccountNo: `000111222${i}33`,
-        bankIfsc: 'ICIC00001',
+        otherAllowance:   1000,
+        pfEnabled:        true,
+        professionalTax:  200,
+        pan:              `ABCDE${2000 + i}P`,
+        aadhaar:          `44443333222${i}`,
+        bankName:         'ICICI Bank',
+        bankAccountNo:    `000111222${i}33`,
+        bankIfsc:         'ICIC00001',
       }
     });
 
-    // Attendance (Last 7 days)
+    // Attendance: last 7 weekdays with IN/OUT logs
     const today = new Date();
     for (let j = 0; j < 7; j++) {
       const date = new Date(today);
-      date.setDate(today.getDate() - i);
+      date.setDate(today.getDate() - j);
       date.setHours(0, 0, 0, 0);
+      if (date.getDay() === 0) continue; // skip Sunday
 
-      await prisma.attendance.create({
+      const checkIn  = new Date(date); checkIn.setHours(9, 0, 0, 0);
+      const checkOut = new Date(date); checkOut.setHours(18, 0, 0, 0);
+
+      const att = await prisma.attendance.create({
         data: {
-          employeeId: employee.id,
-          date: date,
-          checkIn: new Date(date.setHours(9, 0, 0)),
-          checkOut: new Date(date.setHours(18, 0, 0)),
+          employeeId:  employee.id,
+          date,
+          checkIn,
+          checkOut,
           hoursWorked: 9.0,
-          status: 'PRESENT'
+          status:      'PRESENT',
         }
+      });
+
+      // Create IN and OUT logs for each attendance record
+      await prisma.attendanceLog.createMany({
+        data: [
+          { attendanceId: att.id, type: 'IN',  timestamp: checkIn },
+          { attendanceId: att.id, type: 'OUT', timestamp: checkOut },
+        ]
       });
     }
 
-    // Allocation
+    // Leave allocations for current year
+    const year = new Date().getFullYear();
     await prisma.leaveAllocation.createMany({
       data: [
-        { employeeId: employee.id, type: 'PAID_LEAVE', year: 2023, totalDays: 24 },
-        { employeeId: employee.id, type: 'SICK_LEAVE', year: 2023, totalDays: 12 },
+        { employeeId: employee.id, type: 'PAID_LEAVE',   year, totalDays: 24 },
+        { employeeId: employee.id, type: 'SICK_LEAVE',   year, totalDays: 12 },
+        { employeeId: employee.id, type: 'CASUAL_LEAVE', year, totalDays: 8  },
       ]
     });
   }
 
   console.log('--- Seeding Complete! ---');
-  console.log('Format: Odoo India (OI) + Initials + Year + Serial');
+  console.log('All users password: admin123');
+  console.log('Admin:   admin@empay.com');
+  console.log('Employees: john@empay.com, alice@empay.com, bob@empay.com ... (15 total)');
 }
 
 main()
-  .catch(e => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+  .catch(e => { console.error(e); process.exit(1); })
+  .finally(async () => { await prisma.$disconnect(); });

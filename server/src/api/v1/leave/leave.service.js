@@ -40,6 +40,19 @@ async function applyLeave(userId, data) {
   const start = new Date(startDate);
   const end = new Date(endDate);
 
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    const err = new Error('Invalid date provided. Please enter a valid start and end date.');
+    err.status = 400;
+    throw err;
+  }
+
+  const year = start.getFullYear();
+  if (year < 2000 || year > 2100) {
+    const err = new Error(`Invalid year "${year}" in start date. Please enter a valid date.`);
+    err.status = 400;
+    throw err;
+  }
+
   if (end < start) {
     const err = new Error('End date cannot be before start date');
     err.status = 400;
