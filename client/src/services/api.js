@@ -6,14 +6,21 @@ if (!BASE_URL) {
 
 async function request(path, { method = 'GET', body, headers = {}, ...rest } = {}) {
   const token = localStorage.getItem('token');
+  const isFormData = body instanceof FormData;
+  
+  const finalHeaders = {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...headers,
+  };
+
+  if (!isFormData) {
+    finalHeaders['Content-Type'] = 'application/json';
+  }
+
   const res = await fetch(`${BASE_URL}${path}`, {
     method,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...headers,
-    },
-    body: body ? JSON.stringify(body) : undefined,
+    headers: finalHeaders,
+    body: isFormData ? body : (body ? JSON.stringify(body) : undefined),
     credentials: 'include',
     ...rest,
   });

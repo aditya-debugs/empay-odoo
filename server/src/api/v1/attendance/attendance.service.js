@@ -15,42 +15,41 @@ async function checkIn(userId) {
   const today = new Date().toISOString().split('T')[0];
   const todayDate = new Date(today);
 
-  // Check if already checked in
-  const existing = await prisma.attendance.findUnique({
-    where: {
-      employeeId_date: {
+  return prisma.$transaction(async (tx) => {
+    // 1. Ensure Attendance summary record exists for today
+    const attendance = await tx.attendance.upsert({
+      where: {
+        employeeId_date: {
+          employeeId: user.employee.id,
+          date: todayDate
+        }
+      },
+      create: {
         employeeId: user.employee.id,
-        date: todayDate
+        date: todayDate,
+        status: 'PRESENT'
+      },
+      update: {
+        status: 'PRESENT'
       }
-    }
-  });
+    });
 
-  if (existing && existing.checkIn) {
-    const err = new Error('Already checked in today');
-    err.status = 400;
-    throw err;
-  }
-
-  const attendance = await prisma.attendance.upsert({
-    where: {
-      employeeId_date: {
-        employeeId: user.employee.id,
-        date: todayDate
+    // 2. Add the IN log
+    await tx.attendanceLog.create({
+      data: {
+        attendanceId: attendance.id,
+        type: 'IN',
+        timestamp: new Date()
       }
-    },
-    create: {
-      employeeId: user.employee.id,
-      date: todayDate,
-      checkIn: new Date(),
-      status: 'PRESENT'
-    },
-    update: {
-      checkIn: new Date(),
-      status: 'PRESENT'
-    }
-  });
+    });
 
-  return attendance;
+    // 3. Update the main record's last checkIn (for display)
+    return tx.attendance.update({
+      where: { id: attendance.id },
+      data: { checkIn: new Date() },
+      include: { logs: { orderBy: { timestamp: 'desc' } } }
+    });
+  });
 }
 
 async function checkOut(userId) {
@@ -68,38 +67,61 @@ async function checkOut(userId) {
   const today = new Date().toISOString().split('T')[0];
   const todayDate = new Date(today);
 
-  const existing = await prisma.attendance.findUnique({
-    where: {
-      employeeId_date: {
-        employeeId: user.employee.id,
-        date: todayDate
+  return prisma.$transaction(async (tx) => {
+    const attendance = await tx.attendance.findUnique({
+      where: {
+        employeeId_date: {
+          employeeId: user.employee.id,
+          date: todayDate
+        }
+      },
+      include: { logs: { orderBy: { timestamp: 'desc' } } }
+    });
+
+    if (!attendance) {
+      const err = new Error('No check-in found for today');
+      err.status = 400;
+      throw err;
+    }
+
+    // Add the OUT log
+    await tx.attendanceLog.create({
+      data: {
+        attendanceId: attendance.id,
+        type: 'OUT',
+        timestamp: new Date()
+      }
+    });
+
+    // Calculate total hours worked for the day (Sum of all IN-OUT pairs)
+    const allLogs = await tx.attendanceLog.findMany({
+      where: { attendanceId: attendance.id },
+      orderBy: { timestamp: 'asc' }
+    });
+
+    let totalMs = 0;
+    let lastIn = null;
+
+    for (const log of allLogs) {
+      if (log.type === 'IN') {
+        lastIn = log.timestamp;
+      } else if (log.type === 'OUT' && lastIn) {
+        totalMs += (log.timestamp - lastIn);
+        lastIn = null;
       }
     }
+
+    const hoursWorked = totalMs / (1000 * 60 * 60);
+
+    return tx.attendance.update({
+      where: { id: attendance.id },
+      data: {
+        checkOut: new Date(),
+        hoursWorked: parseFloat(hoursWorked.toFixed(4))
+      },
+      include: { logs: { orderBy: { timestamp: 'desc' } } }
+    });
   });
-
-  if (!existing || !existing.checkIn) {
-    const err = new Error('No check-in found for today');
-    err.status = 400;
-    throw err;
-  }
-
-  const checkOutTime = new Date();
-  const hoursWorked = (checkOutTime - existing.checkIn) / (1000 * 60 * 60);
-
-  const attendance = await prisma.attendance.update({
-    where: {
-      employeeId_date: {
-        employeeId: user.employee.id,
-        date: todayDate
-      }
-    },
-    data: {
-      checkOut: checkOutTime,
-      hoursWorked: parseFloat(hoursWorked.toFixed(2))
-    }
-  });
-
-  return attendance;
 }
 
 async function getAttendanceHistory(userId, limit = 30, offset = 0) {
@@ -116,6 +138,7 @@ async function getAttendanceHistory(userId, limit = 30, offset = 0) {
 
   const records = await prisma.attendance.findMany({
     where: { employeeId: user.employee.id },
+    include: { logs: { orderBy: { timestamp: 'desc' } } },
     take: limit,
     skip: offset,
     orderBy: { date: 'desc' }
@@ -144,7 +167,8 @@ async function listAllAttendance({ date, search } = {}) {
     include: { 
       employee: { 
         include: { user: { select: { name: true, email: true } } } 
-      } 
+      },
+      logs: { orderBy: { timestamp: 'desc' } }
     },
     orderBy: { checkIn: 'desc' }
   });
@@ -153,4 +177,3 @@ async function listAllAttendance({ date, search } = {}) {
 }
 
 module.exports = { checkIn, checkOut, getAttendanceHistory, listAllAttendance };
-

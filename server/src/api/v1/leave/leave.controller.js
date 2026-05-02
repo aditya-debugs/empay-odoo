@@ -16,6 +16,9 @@ exports.getMyBalance = async (req, res, next) => {
 
 exports.apply = async (req, res, next) => {
   try {
+    if (req.file) {
+      req.body.attachmentUrl = req.file.filename;
+    }
     const result = await service.applyLeave(req.user.id, req.body);
     res.status(201).json(result);
   } catch (e) { next(e); }
