@@ -92,8 +92,8 @@ export default function HRDashboard() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button size="sm" variant="ghost" className="text-red-500 hover:bg-red-50 font-bold">Reject</Button>
-                      <Button size="sm" className="bg-[#198754] hover:bg-[#157347] text-white border-none font-bold px-4">Approve</Button>
+                      <Button size="sm" variant="danger">Reject</Button>
+                      <Button size="sm" variant="primary">Approve</Button>
                     </div>
                   </div>
                 ))}

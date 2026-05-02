@@ -132,68 +132,75 @@ export default function HRAttendanceView() {
             </h2>
           </div>
 
-          <Card className="overflow-hidden border-gray-100 shadow-sm bg-white rounded-2xl">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-white border-b border-gray-100">
-                  <th className="px-8 py-5 text-[13px] font-semibold text-gray-500 uppercase tracking-wider">Emp</th>
-                  <th className="px-8 py-5 text-[13px] font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-8 py-5 text-[13px] font-semibold text-gray-500 uppercase tracking-wider">Check In</th>
-                  <th className="px-8 py-5 text-[13px] font-semibold text-gray-500 uppercase tracking-wider">Check Out</th>
-                  <th className="px-8 py-5 text-[13px] font-semibold text-gray-500 uppercase tracking-wider">Work Hours</th>
-                  <th className="px-8 py-5 text-[13px] font-semibold text-gray-500 uppercase tracking-wider">Extra hours</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
+          <Card className="overflow-hidden border-border shadow-sm bg-white p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm whitespace-nowrap">
+                <thead className="bg-surface-muted border-b border-border">
+                  <tr>
+                    <th className="px-6 py-4 text-[12px] font-semibold tracking-wider text-ink-muted uppercase">Emp</th>
+                    <th className="px-6 py-4 text-[12px] font-semibold tracking-wider text-ink-muted uppercase">Status</th>
+                    <th className="px-6 py-4 text-[12px] font-semibold tracking-wider text-ink-muted uppercase">Check In</th>
+                    <th className="px-6 py-4 text-[12px] font-semibold tracking-wider text-ink-muted uppercase">Check Out</th>
+                    <th className="px-6 py-4 text-[12px] font-semibold tracking-wider text-ink-muted uppercase">Work Hours</th>
+                    <th className="px-6 py-4 text-[12px] font-semibold tracking-wider text-ink-muted uppercase">Extra hours</th>
+                  </tr>
+                </thead>
+              <tbody className="divide-y divide-border">
                 {loading ? (
                   [1,2,3].map(i => (
-                    <tr key={i} className="animate-pulse"><td colSpan={6} className="h-20 bg-gray-50/50" /></tr>
+                    <tr key={i} className="animate-pulse"><td colSpan={6} className="h-20 bg-surface-muted/50" /></tr>
                   ))
                 ) : records.length > 0 ? records.map(record => {
                   const workHrs = record.hoursWorked || 0;
                   const extraHrs = Math.max(0, workHrs - 9);
                   return (
-                    <tr key={record.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-8 py-5">
+                    <tr key={record.id} className="hover:bg-surface-muted/30 transition-colors">
+                      <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <Avatar name={record.employee.user.name} className="h-9 w-9" />
                           <div>
-                            <p className="font-bold text-gray-900">{record.employee.user.name}</p>
-                            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">{record.employee.department}</p>
+                            <p className="font-bold text-ink">{record.employee.user.name}</p>
+                            <p className="text-[10px] text-ink-muted uppercase tracking-wider font-medium">{record.employee.department}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-8 py-5">
-                        <span className={`text-[10px] font-bold uppercase tracking-tight px-2 py-0.5 rounded border ${
-                          record.status === 'PRESENT' ? 'bg-green-50 text-green-600 border-green-100' :
-                          record.status === 'REGULARIZED' ? 'bg-blue-50 text-blue-600 border-blue-100' :
-                          'bg-red-50 text-red-600 border-red-100'
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wide border ${
+                          record.status === 'PRESENT' ? 'bg-success-50 text-success-700 border-success-500/20' :
+                          record.status === 'REGULARIZED' ? 'bg-brand-50 text-brand-700 border-brand-500/20' :
+                          'bg-danger-50 text-danger-700 border-danger-500/20'
                         }`}>
                           {record.status}
                         </span>
                       </td>
 
-                      <td className="px-8 py-5 text-[13px] font-bold text-gray-700">
+                      <td className="px-6 py-4 text-[13px] font-bold text-ink">
                         {record.checkIn ? new Date(record.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '—'}
                       </td>
-                      <td className="px-8 py-5 text-[13px] font-bold text-gray-700">
+                      <td className="px-6 py-4 text-[13px] font-bold text-ink">
                         {record.checkOut ? new Date(record.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '—'}
                       </td>
-                      <td className="px-8 py-5 text-[13px] font-bold text-gray-700">
+                      <td className="px-6 py-4 text-[13px] font-bold text-ink">
                         {formatHours(workHrs)}
                       </td>
-                      <td className="px-8 py-5 text-[13px] font-bold text-gray-700">
+                      <td className="px-6 py-4 text-[13px] font-bold text-ink">
                         {formatHours(extraHrs)}
                       </td>
                     </tr>
                   );
                 }) : (
                   <tr>
-                    <td colSpan={6} className="px-8 py-20 text-center text-gray-400 italic">No attendance records for this date.</td>
+                    <td colSpan={6} className="px-6 py-12 text-center text-ink-muted">
+                      <div className="flex flex-col items-center justify-center">
+                        <Clock className="h-8 w-8 mb-2 opacity-20" />
+                        <p className="text-sm font-medium">No attendance records for this date</p>
+                      </div>
+                    </td>
                   </tr>
                 )}
               </tbody>
             </table>
+            </div>
           </Card>
         </div>
       ) : (
@@ -228,15 +235,14 @@ export default function HRAttendanceView() {
                       </div>
                       <div className="flex items-center gap-3 self-end md:self-center">
                         <Button 
-                          variant="ghost" 
-                          className="text-red-500 font-bold hover:bg-red-50" 
+                          variant="danger" 
                           onClick={() => handleRegAction(reg.id, 'REJECTED')} 
                           loading={processing === reg.id}
                         >
                           Reject Request
                         </Button>
                         <Button 
-                          className="bg-[#198754] hover:bg-[#157347] text-white border-none font-bold px-8 py-2.5 rounded-xl shadow-lg shadow-green-500/10" 
+                          variant="primary"
                           onClick={() => handleRegAction(reg.id, 'APPROVED')} 
                           loading={processing === reg.id}
                         >

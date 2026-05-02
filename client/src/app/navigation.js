@@ -40,7 +40,7 @@ export const navConfig = {
   EMPLOYEE: [
     { to: '/employee/dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
     { to: '/employee/profile',    label: 'My Profile', icon: User },
-    { to: '/employee/directory',  label: 'Directory',  icon: Users },
+    { to: '/employee/directory',  label: 'Employees',  icon: Users },
     { to: '/employee/attendance', label: 'Attendance', icon: Clock },
     { to: '/employee/leaves',     label: 'Time Off',   icon: CalendarDays },
     { to: '/employee/payslips',   label: 'Payslips',   icon: FileText },

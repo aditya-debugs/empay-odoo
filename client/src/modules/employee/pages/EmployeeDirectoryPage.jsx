@@ -28,7 +28,7 @@ export default function EmployeeDirectoryPage() {
 
   return (
     <div className="px-8 py-8">
-      <h1 className="text-3xl font-semibold tracking-tight">Employee Directory</h1>
+      <h1 className="text-3xl font-semibold tracking-tight">Employees</h1>
       <p className="mt-1 text-sm text-ink-muted">View all employees in the organization</p>
 
       {error && <div className="mt-4 p-3 bg-danger-50 text-danger-700 rounded-lg text-sm">{error}</div>}
@@ -55,11 +55,11 @@ export default function EmployeeDirectoryPage() {
                   <Users className="h-8 w-8 text-primary-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-sm">{emp.user?.name}</h3>
+                  <h3 className="font-semibold text-sm">{emp.name}</h3>
                   <p className="text-xs text-ink-muted mt-1">{emp.position}</p>
                   <p className="text-xs text-ink-muted">{emp.department}</p>
-                  <a href={`mailto:${emp.user?.email}`} className="text-xs text-primary-600 mt-2 hover:underline">
-                    {emp.user?.email}
+                  <a href={`mailto:${emp.email}`} className="text-xs text-primary-600 mt-2 hover:underline">
+                    {emp.email}
                   </a>
                   {emp.phone && <p className="text-xs text-ink-muted mt-1">📞 {emp.phone}</p>}
                 </div>

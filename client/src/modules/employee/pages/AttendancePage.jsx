@@ -123,14 +123,14 @@ export default function AttendancePage() {
       </div>}
 
       {/* Check-in/Out Controls */}
-      <Card className="p-6 bg-gradient-to-br from-blue-600/20 to-indigo-600/20 border-white/10 relative overflow-hidden group">
-        <div className="absolute -right-12 -top-12 opacity-5 group-hover:opacity-10 transition-opacity">
-          <Clock className="h-48 w-48 text-white" />
+      <Card className="p-6 bg-brand-500 border-brand-600 relative overflow-hidden group shadow-lg">
+        <div className="absolute -right-12 -top-12 opacity-10 group-hover:opacity-20 transition-opacity duration-300">
+          <Clock className="h-48 w-48 text-brand-200" />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center relative z-10">
           <div>
-            <p className="text-xs font-medium text-blue-400 uppercase tracking-wider">Status Today</p>
+            <p className="text-xs font-medium text-brand-100 uppercase tracking-wider">Status Today</p>
             <div className="flex items-center gap-3 mt-2">
               <div className={`h-3 w-3 rounded-full animate-pulse ${todayStatus?.checkIn ? 'bg-success-500' : 'bg-danger-500'}`} />
               <p className="text-xl font-bold text-white">
@@ -145,23 +145,23 @@ export default function AttendancePage() {
           </div>
 
           <div>
-            <p className="text-xs font-medium text-blue-400 uppercase tracking-wider">Time Tracked</p>
+            <p className="text-xs font-medium text-brand-100 uppercase tracking-wider">Time Tracked</p>
             <p className="text-3xl font-bold text-white mt-1">
-              {todayStatus?.hoursWorked || '0.00'} <span className="text-sm font-normal text-ink-muted">hrs</span>
+              {todayStatus?.hoursWorked || '0.00'} <span className="text-sm font-normal text-brand-200">hrs</span>
             </p>
           </div>
 
           <div className="flex items-center gap-3">
             {!todayStatus?.checkIn ? (
-              <Button onClick={handleCheckIn} loading={checking} className="w-full bg-blue-600 hover:bg-blue-500 text-white border-none shadow-lg shadow-blue-500/20">
+              <Button onClick={handleCheckIn} loading={checking} className="w-full bg-white text-brand-600 hover:bg-brand-50 border-none shadow-lg shadow-black/10">
                 <LogIn className="h-4 w-4 mr-2" /> Check In
               </Button>
             ) : !todayStatus?.checkOut ? (
-              <Button onClick={handleCheckOut} loading={checking} className="w-full bg-white text-black hover:bg-white/90 border-none shadow-lg">
+              <Button onClick={handleCheckOut} loading={checking} className="w-full bg-warning-500 text-white hover:bg-warning-600 border-none shadow-lg shadow-warning-500/20">
                 <LogOut className="h-4 w-4 mr-2" /> Check Out
               </Button>
             ) : (
-              <Button disabled className="w-full bg-white/5 text-ink-muted border-white/10">
+              <Button disabled className="w-full bg-white/10 text-brand-200 border-transparent">
                 Work Finished
               </Button>
             )}
@@ -170,44 +170,53 @@ export default function AttendancePage() {
       </Card>
 
       <div className="mt-8">
-        <h2 className="text-xl font-semibold mb-4">Recent Attendance</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="border-b border-ink-200">
-              <tr>
-                <th className="text-left py-3 px-4 font-semibold">Date</th>
-                <th className="text-left py-3 px-4 font-semibold">Check-in</th>
-                <th className="text-left py-3 px-4 font-semibold">Check-out</th>
-                <th className="text-left py-3 px-4 font-semibold">Hours</th>
-                <th className="text-left py-3 px-4 font-semibold">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {attendance.length === 0 ? (
-                <tr>
-                  <td colSpan="5" className="text-center py-8 text-ink-muted">No attendance records yet</td>
-                </tr>
-              ) : (
-                attendance.map((record) => (
-                  <tr key={record.id} className="border-b border-ink-100 hover:bg-ink-50">
-                    <td className="py-3 px-4">{new Date(record.date).toLocaleDateString()}</td>
-                    <td className="py-3 px-4">{record.checkIn ? new Date(record.checkIn).toLocaleTimeString() : '-'}</td>
-                    <td className="py-3 px-4">{record.checkOut ? new Date(record.checkOut).toLocaleTimeString() : '-'}</td>
-                    <td className="py-3 px-4">{record.hoursWorked || 0} hrs</td>
-                    <td className="py-3 px-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${record.status === 'PRESENT' ? 'bg-success-100 text-success-700' :
-                          record.status === 'REGULARIZED' ? 'bg-brand-100 text-brand-700' :
-                            'bg-danger-100 text-danger-700'
-                        }`}>
-                        {record.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <h2 className="text-xl font-semibold mb-4 text-ink">Recent Attendance</h2>
+        
+        {attendance.length === 0 ? (
+          <Card className="flex flex-col items-center justify-center py-12 text-ink-muted bg-surface/50 border-dashed border-2">
+            <Clock className="h-8 w-8 mb-2 opacity-20" />
+            <p className="text-sm font-medium">No attendance records yet</p>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {attendance.map((record) => (
+              <Card key={record.id} className="p-5 hover:shadow-md transition-shadow group flex flex-col justify-between">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <p className="font-bold text-ink">
+                      {new Date(record.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                    </p>
+                    <p className="text-xs text-ink-muted mt-0.5">
+                      {record.hoursWorked || 0} hours total
+                    </p>
+                  </div>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold tracking-wide uppercase border ${
+                      record.status === 'PRESENT' ? 'bg-success-50 text-success-700 border-success-500/20' :
+                      record.status === 'REGULARIZED' ? 'bg-brand-50 text-brand-700 border-brand-500/20' :
+                      'bg-danger-50 text-danger-700 border-danger-500/20'
+                    }`}>
+                    {record.status}
+                  </span>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4 mt-auto p-3 bg-surface-muted rounded-xl">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider font-semibold text-ink-soft mb-1">Check In</p>
+                    <p className="text-sm font-semibold text-ink">
+                      {record.checkIn ? new Date(record.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider font-semibold text-ink-soft mb-1">Check Out</p>
+                    <p className="text-sm font-semibold text-ink">
+                      {record.checkOut ? new Date(record.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
 
       <Modal isOpen={regModalOpen} onClose={() => setRegModalOpen(false)} title="Request Regularization">

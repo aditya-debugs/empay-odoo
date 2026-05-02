@@ -191,7 +191,8 @@ export default function HRLeaveQueue() {
 
                   <div className="mt-8 flex gap-3">
                     <Button
-                      className="flex-1 bg-[#198754] hover:bg-[#157347] text-white border-none font-bold py-2.5 rounded-xl"
+                      className="flex-1"
+                      variant="primary"
                       onClick={() => handleStatusUpdate(leave.id, 'APPROVED')}
                       loading={submitting === leave.id}
                     >
@@ -199,8 +200,8 @@ export default function HRLeaveQueue() {
                       Approve
                     </Button>
                     <Button
-                      variant="outline"
-                      className="flex-1 text-[#DC3545] border-red-100 hover:bg-red-50 font-bold py-2.5 rounded-xl"
+                      variant="danger"
+                      className="flex-1"
                       onClick={() => handleStatusUpdate(leave.id, 'REJECTED')}
                       loading={submitting === leave.id}
                     >
@@ -218,48 +219,51 @@ export default function HRLeaveQueue() {
       {/* Recently Processed Section */}
       <section className="space-y-4">
         <h2 className="text-lg font-bold text-gray-800">Recently Processed</h2>
-        <Card className="overflow-hidden border-gray-100 shadow-sm bg-white rounded-2xl">
+        <Card className="overflow-hidden border-border shadow-sm bg-white p-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-white border-b border-gray-100">
-                  <th className="px-8 py-5 text-[13px] font-semibold text-gray-500">Employee</th>
-                  <th className="px-8 py-5 text-[13px] font-semibold text-gray-500">Dates</th>
-                  <th className="px-8 py-5 text-[13px] font-semibold text-gray-500">Type</th>
-                  <th className="px-8 py-5 text-[13px] font-semibold text-gray-500">Status</th>
-                  <th className="px-8 py-5 text-[13px] font-semibold text-gray-500">Processed At</th>
+            <table className="w-full text-left text-sm whitespace-nowrap">
+              <thead className="bg-surface-muted border-b border-border">
+                <tr>
+                  <th className="px-6 py-4 text-[12px] font-semibold tracking-wider text-ink-muted uppercase">Employee</th>
+                  <th className="px-6 py-4 text-[12px] font-semibold tracking-wider text-ink-muted uppercase">Dates</th>
+                  <th className="px-6 py-4 text-[12px] font-semibold tracking-wider text-ink-muted uppercase">Type</th>
+                  <th className="px-6 py-4 text-[12px] font-semibold tracking-wider text-ink-muted uppercase">Status</th>
+                  <th className="px-6 py-4 text-[12px] font-semibold tracking-wider text-ink-muted uppercase">Processed At</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-border">
                 {processed.map((leave) => (
-                  <tr key={leave.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-8 py-5">
-                      <div className="font-bold text-gray-900">{leave.employee?.user?.name}</div>
-                      <div className="text-[11px] text-gray-500 font-medium uppercase tracking-wider">{leave.employee?.department || 'Engineering'}</div>
+                  <tr key={leave.id} className="hover:bg-surface-muted/30 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="font-bold text-ink">{leave.employee?.user?.name}</div>
+                      <div className="text-[11px] text-ink-muted font-medium uppercase tracking-wider">{leave.employee?.department || 'Engineering'}</div>
                     </td>
-                    <td className="px-8 py-5">
-                      <div className="text-gray-900 font-bold">{new Date(leave.startDate).toLocaleDateString()}</div>
-                      <div className="text-[11px] text-gray-500 font-medium">{leave.days} Days</div>
+                    <td className="px-6 py-4">
+                      <div className="text-ink font-bold">{new Date(leave.startDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - {new Date(leave.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</div>
+                      <div className="text-[11px] text-ink-muted font-medium">{leave.days} Days</div>
                     </td>
-                    <td className="px-8 py-5 text-[13px] font-medium text-gray-600">
+                    <td className="px-6 py-4 text-[13px] font-medium text-ink-muted">
                       {leave.type.replace('_', ' ')}
                     </td>
-                    <td className="px-8 py-5">
-                      <span className={`text-[12px] font-bold ${
-                        leave.status === 'APPROVED' ? 'text-[#198754]' : 'text-[#DC3545]'
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wide border ${
+                        leave.status === 'APPROVED' ? 'bg-success-50 text-success-700 border-success-500/20' : 'bg-danger-50 text-danger-700 border-danger-500/20'
                       }`}>
                         {leave.status}
                       </span>
                     </td>
-                    <td className="px-8 py-5 text-[13px] text-gray-500">
-                      {leave.approvedAt ? new Date(leave.approvedAt).toLocaleDateString() : '-'}
+                    <td className="px-6 py-4 text-[13px] text-ink-muted font-medium">
+                      {leave.approvedAt ? new Date(leave.approvedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}
                     </td>
                   </tr>
                 ))}
                 {processed.length === 0 && (
                   <tr>
-                    <td colSpan="5" className="px-8 py-20 text-center text-gray-400 italic">
-                      No processed requests found.
+                    <td colSpan="5" className="px-6 py-12 text-center text-ink-muted">
+                      <div className="flex flex-col items-center justify-center">
+                        <Calendar className="h-8 w-8 mb-2 opacity-20" />
+                        <p className="text-sm font-medium">No processed requests found</p>
+                      </div>
                     </td>
                   </tr>
                 )}
@@ -311,44 +315,47 @@ export default function HRLeaveQueue() {
                   onChange={(e) => setAllocForm({ ...allocForm, totalDays: parseFloat(e.target.value) })}
                 />
               </div>
-              <Button type="submit" loading={submitting === 'allocate'} className="bg-[#198754] hover:bg-[#157347] text-white border-none font-bold h-[42px]">
+              <Button type="submit" variant="primary" loading={submitting === 'allocate'} className="h-10">
                 Allocate
               </Button>
             </form>
           </Card>
 
-          <Card className="overflow-hidden border-gray-100 shadow-sm bg-white rounded-2xl">
+          <Card className="overflow-hidden border-border shadow-sm bg-white p-0">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-white border-b border-gray-100">
-                    <th className="px-8 py-5 text-[13px] font-semibold text-gray-500">Employee</th>
-                    <th className="px-8 py-5 text-[13px] font-semibold text-gray-500">Type / Year</th>
-                    <th className="px-8 py-5 text-[13px] font-semibold text-gray-500">Total Allocated</th>
-                    <th className="px-8 py-5 text-[13px] font-semibold text-gray-500">Used Days</th>
-                    <th className="px-8 py-5 text-[13px] font-semibold text-gray-500">Remaining</th>
+              <table className="w-full text-left text-sm whitespace-nowrap">
+                <thead className="bg-surface-muted border-b border-border">
+                  <tr>
+                    <th className="px-6 py-4 text-[12px] font-semibold tracking-wider text-ink-muted uppercase">Employee</th>
+                    <th className="px-6 py-4 text-[12px] font-semibold tracking-wider text-ink-muted uppercase">Type / Year</th>
+                    <th className="px-6 py-4 text-[12px] font-semibold tracking-wider text-ink-muted uppercase">Total Allocated</th>
+                    <th className="px-6 py-4 text-[12px] font-semibold tracking-wider text-ink-muted uppercase">Used Days</th>
+                    <th className="px-6 py-4 text-[12px] font-semibold tracking-wider text-ink-muted uppercase">Remaining</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody className="divide-y divide-border">
                   {allocations.map((alloc) => {
                     const remaining = parseFloat(alloc.totalDays) - parseFloat(alloc.usedDays);
                     return (
-                      <tr key={alloc.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-8 py-5 font-bold text-gray-900">{alloc.employee?.user?.name}</td>
-                        <td className="px-8 py-5">
-                          <span className="font-bold text-gray-700">{alloc.type.replace('_', ' ')}</span>
-                          <span className="text-[11px] text-gray-500 ml-2">({alloc.year})</span>
+                      <tr key={alloc.id} className="hover:bg-surface-muted/30 transition-colors">
+                        <td className="px-6 py-4 font-bold text-ink">{alloc.employee?.user?.name}</td>
+                        <td className="px-6 py-4">
+                          <span className="font-bold text-ink-muted">{alloc.type.replace('_', ' ')}</span>
+                          <span className="text-[11px] text-ink-soft ml-2">({alloc.year})</span>
                         </td>
-                        <td className="px-8 py-5 font-medium text-gray-600">{alloc.totalDays}</td>
-                        <td className="px-8 py-5 font-medium text-red-500">{alloc.usedDays}</td>
-                        <td className="px-8 py-5 font-bold text-green-600">{remaining}</td>
+                        <td className="px-6 py-4 font-bold text-ink">{alloc.totalDays}</td>
+                        <td className="px-6 py-4 font-bold text-danger-500">{alloc.usedDays}</td>
+                        <td className="px-6 py-4 font-bold text-success-600">{remaining}</td>
                       </tr>
                     );
                   })}
                   {allocations.length === 0 && !loading && (
                     <tr>
-                      <td colSpan="5" className="px-8 py-20 text-center text-gray-400 italic">
-                        No leave allocations found.
+                      <td colSpan="5" className="px-6 py-12 text-center text-ink-muted">
+                        <div className="flex flex-col items-center justify-center">
+                          <Calendar className="h-8 w-8 mb-2 opacity-20" />
+                          <p className="text-sm font-medium">No leave allocations found</p>
+                        </div>
                       </td>
                     </tr>
                   )}

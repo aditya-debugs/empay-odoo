@@ -81,7 +81,7 @@ export default function EmployeeDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-ink-muted">Monthly Salary</p>
-                <p className="text-2xl font-semibold mt-1">${dashboard?.employee?.basicSalary?.toLocaleString()}</p>
+                <p className="text-2xl font-semibold mt-1">₹{dashboard?.employee?.basicSalary?.toLocaleString()}</p>
               </div>
               <DollarSign className="h-10 w-10 text-primary-500" />
             </div>
@@ -126,7 +126,7 @@ export default function EmployeeDashboard() {
                 </div>
                 <div>
                   <p className="text-sm text-ink-muted">Net Salary</p>
-                  <p className="text-lg font-semibold mt-1">${dashboard.lastPayslip.netSalary?.toLocaleString()}</p>
+                  <p className="text-lg font-semibold mt-1">₹{dashboard.lastPayslip.netSalary?.toLocaleString()}</p>
                 </div>
                 <div>
                   <p className="text-sm text-ink-muted">Status</p>

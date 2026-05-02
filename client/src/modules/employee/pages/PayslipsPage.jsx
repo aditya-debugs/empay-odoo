@@ -93,19 +93,19 @@ export default function PayslipsPage() {
                 <div className="space-y-3 mb-4 pb-4 border-b border-ink-200">
                   <div className="flex justify-between">
                     <span className="text-sm text-ink-muted">Basic Salary</span>
-                    <span className="text-sm font-semibold">${payslip.basicSalary?.toLocaleString()}</span>
+                    <span className="text-sm font-semibold">₹{payslip.basicSalary?.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-ink-muted">Gross Salary</span>
-                    <span className="text-sm font-semibold">${payslip.grossSalary?.toLocaleString()}</span>
+                    <span className="text-sm font-semibold">₹{payslip.grossSalary?.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-ink-muted">Total Deductions</span>
-                    <span className="text-sm font-semibold text-danger-600">-${payslip.totalDeductions?.toLocaleString()}</span>
+                    <span className="text-sm font-semibold text-danger-600">-₹{payslip.totalDeductions?.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between bg-primary-50 p-2 rounded">
                     <span className="text-sm font-medium">Net Salary</span>
-                    <span className="text-sm font-bold text-primary-600">${payslip.netSalary?.toLocaleString()}</span>
+                    <span className="text-sm font-bold text-primary-600">₹{payslip.netSalary?.toLocaleString()}</span>
                   </div>
                 </div>
 
