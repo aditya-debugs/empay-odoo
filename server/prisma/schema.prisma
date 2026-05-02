@@ -1,0 +1,11 @@
+// EmPay — Prisma Schema
+// Add your models below as features are built
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
