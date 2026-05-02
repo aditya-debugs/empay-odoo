@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Save, Building2, Banknote, Clock } from 'lucide-react';
 import { Card, Tabs, Button, Input } from '../../../features/ui';
-import { settingsService } from '../../../services/payrollService';
+import api from '../../../services/api';
 
 const STATES = ['MAHARASHTRA', 'KARNATAKA', 'TAMIL_NADU', 'GUJARAT', 'WEST_BENGAL', 'DELHI'];
 
@@ -14,8 +14,8 @@ export default function SettingsPage() {
   const [active, setActive] = useState('company');
 
   useEffect(() => {
-    settingsService.get()
-      .then(({ settings }) => setSettings(settings))
+    api.get('/settings').catch(() => ({}))
+      .then((res) => setSettings(res.settings || res || {}))
       .catch((e) => setError(e.message || 'Failed to load settings'))
       .finally(() => setLoading(false));
   }, []);
@@ -35,8 +35,8 @@ export default function SettingsPage() {
     setSaving(true);
     setError('');
     try {
-      const { settings: updated } = await settingsService.update(settings);
-      setSettings(updated);
+      const updated = await api.put('/settings', settings);
+      setSettings(updated.settings || updated);
       setSavedFlash('Settings saved.');
       setTimeout(() => setSavedFlash(''), 2500);
     } catch (e) {

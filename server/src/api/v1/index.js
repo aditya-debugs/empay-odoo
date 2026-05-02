@@ -20,11 +20,9 @@ router.use('/users',            require('./users/users.routes'));
 router.use('/employees',        require('./employees/employees.routes'));
 router.use('/attendance',       require('./attendance/attendance.routes'));
 router.use('/leave',            require('./leave/leave.routes'));
-router.use('/payroll',          require('./payroll/payroll.routes'));
-router.use('/payslips',         require('./payslips/payslips.routes'));
-router.use('/payslip-disputes', require('./payslip-disputes/payslip-disputes.routes'));
-router.use('/dashboard',        require('./dashboard/dashboard.routes'));
 router.use('/settings',         require('./settings/settings.routes'));
-router.use('/reports',          require('./reports/reports.routes'));
+
+// Unified Payroll Module (Phase 2)
+router.use('/', require('../payrollRoutes'));
 
 module.exports = router;

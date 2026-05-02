@@ -142,5 +142,35 @@ async function getAdminDashboard() {
   };
 }
 
-module.exports = { getEmployeeDashboard, getAdminDashboard };
+async function getPayrollDashboard() {
+  const pendingDisputes = await prisma.payslipDispute.count({
+    where: { status: 'OPEN' }
+  });
 
+  const payrollRuns = await prisma.payslip.groupBy({
+    by: ['year', 'month', 'status'],
+    _count: { _all: true },
+    where: { status: 'GENERATED' }
+  });
+
+  const totalGenerated = payrollRuns.reduce((sum, run) => sum + run._count._all, 0);
+
+  const thisMonth = new Date().getMonth() + 1;
+  const thisYear = new Date().getFullYear();
+
+  const currentRun = await prisma.payslip.count({
+    where: { month: thisMonth, year: thisYear, status: 'GENERATED' }
+  });
+
+  return {
+    pendingDisputes,
+    totalGenerated,
+    currentRun,
+    recentActivity: [
+      { text: `${currentRun} payslips generated for this month.` },
+      { text: `${pendingDisputes} disputes waiting for review.` }
+    ]
+  };
+}
+
+module.exports = { getEmployeeDashboard, getAdminDashboard, getPayrollDashboard };

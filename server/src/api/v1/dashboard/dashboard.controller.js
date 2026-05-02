@@ -14,4 +14,11 @@ exports.getAdminDashboard = async (req, res, next) => {
   } catch (e) { next(e); }
 };
 
+exports.getPayrollDashboard = async (req, res, next) => {
+  try {
+    const dashboard = await service.getPayrollDashboard();
+    res.json(dashboard);
+  } catch (e) { next(e); }
+};
+
 module.exports = exports;

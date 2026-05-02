@@ -21,11 +21,11 @@ export default function PayslipsPage() {
     setLoading(true);
     try {
       const [payslipsData, disputesData] = await Promise.all([
-        api.get('/payslips/me'),
-        api.get('/payslip-disputes/me').catch(() => ({ disputes: [] }))
+        api.get('/payslips'),
+        api.get('/payslip-disputes').catch(() => ([]))
       ]);
-      setPayslips(payslipsData.payslips || []);
-      setDisputes(disputesData.disputes || []);
+      setPayslips(payslipsData || []);
+      setDisputes(disputesData || []);
     } catch (err) {
       setError(err.message || 'Failed to load payslips');
     } finally {
@@ -77,10 +77,10 @@ export default function PayslipsPage() {
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <h3 className="font-semibold">
-                      {new Date(payslip.createdAt).toLocaleString('default', { month: 'long', year: 'numeric' })}
+                      {new Date(`${payslip.year}-${String(payslip.month).padStart(2, '0')}-01`).toLocaleString('default', { month: 'long', year: 'numeric' })}
                     </h3>
                     <p className="text-xs text-ink-muted mt-1">
-                      Month: {payslip.month} | Year: {payslip.year}
+                      System Generated
                     </p>
                   </div>
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
