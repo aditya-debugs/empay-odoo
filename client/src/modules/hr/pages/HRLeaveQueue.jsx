@@ -8,7 +8,27 @@ import {
   AlertCircle,
   CheckCircle2
 } from 'lucide-react';
-import { Card, Button, Avatar, Tabs, Input, Select } from '../../../features/ui';
+import { Card, Button, Avatar, Tabs, Input } from '../../../features/ui';
+
+function Select({ label, options, value, onChange, required, className = '' }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      {label && <label className="text-sm font-medium text-gray-700">{label}</label>}
+      <select
+        required={required}
+        value={value}
+        onChange={onChange}
+        className={`w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none h-10 ${className}`}
+      >
+        {options?.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
 import hrService from '../hrService';
 
 export default function HRLeaveQueue() {
