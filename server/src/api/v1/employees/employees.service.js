@@ -98,3 +98,57 @@ exports.updateBankDetails = async (userId, data) => {
   });
   return usersService.getUser(userId);
 };
+
+exports.adminUpdateEmployee = async (id, data) => {
+  const user = await prisma.user.findUnique({
+    where: { id },
+    include: { employee: true },
+  });
+  if (!user) {
+    const err = new Error('User not found');
+    err.status = 404;
+    throw err;
+  }
+
+  return prisma.$transaction(async (tx) => {
+    // Update User part
+    await tx.user.update({
+      where: { id },
+      data: {
+        email: data.email ?? user.email,
+        name:  data.name  ?? user.name,
+        role:  data.role  ?? user.role, // Only if allowed by controller
+        phone: data.phone ?? user.phone,
+        isActive: data.isActive ?? user.isActive,
+      }
+    });
+
+    // Update Employee part
+    if (user.employee) {
+      await tx.employee.update({
+        where: { id: user.employee.id },
+        data: {
+          firstName:      data.firstName      ?? user.employee.firstName,
+          lastName:       data.lastName       ?? user.employee.lastName,
+          gender:         data.gender         ?? user.employee.gender,
+          department:     data.department     ?? user.employee.department,
+          position:       data.position       ?? user.employee.position,
+          status:         data.status         ?? user.employee.status,
+          employmentType: data.employmentType ?? user.employee.employmentType,
+          joinDate:       data.joinDate ? new Date(data.joinDate) : user.employee.joinDate,
+          avatarUrl:      data.avatarUrl      ?? user.employee.avatarUrl,
+          // Salary fields — HR cannot touch these, we should filter them in controller 
+          // but for safety we only update if provided and we trust the controller for permissions.
+          basicSalary:    data.basicSalary    ?? user.employee.basicSalary,
+          hra:            data.hra            ?? user.employee.hra,
+          conveyance:     data.conveyance     ?? user.employee.conveyance,
+          specialAllowance: data.specialAllowance ?? user.employee.specialAllowance,
+          otherAllowance: data.otherAllowance ?? user.employee.otherAllowance,
+        }
+      });
+    }
+
+    return usersService.getUser(id);
+  });
+};
+

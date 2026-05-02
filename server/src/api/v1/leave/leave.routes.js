@@ -17,4 +17,13 @@ router.post('/apply', requireAuth, requireRole('EMPLOYEE'), ctrl.apply);
 router.get('/queue', requireAuth, requireRole('ADMIN', 'HR_OFFICER'), ctrl.listQueue);
 router.patch('/:id/status', requireAuth, requireRole('ADMIN', 'HR_OFFICER'), ctrl.updateStatus);
 
+// HR specific: Get another employee's leaves
+router.get('/employee/:employeeId', requireAuth, requireRole('ADMIN', 'HR_OFFICER'), async (req, res, next) => {
+  try {
+    const result = await service.getEmployeeLeaves(req.params.employeeId);
+    res.json(result);
+  } catch (e) { next(e); }
+});
+
 module.exports = router;
+

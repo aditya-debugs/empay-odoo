@@ -3,19 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Plus } from 'lucide-react';
 import { Avatar, Button } from '../../../features/ui';
 import { DEPARTMENTS, ALL_ROLES } from '../../../features/employees/employeeMocks';
-import { employeesService } from '../../../services/usersService';
+import hrService from '../hrService';
 
 const NON_ADMIN_ROLES = ALL_ROLES.filter((r) => r.value !== 'ADMIN');
 
 function StatusIndicator({ status }) {
-  // Orange dot as shown in the screenshot for active/present employees
   const dotColor = status === 'ABSENT' ? 'bg-gray-300' : 'bg-orange-400';
   return (
     <div className={`h-2.5 w-2.5 rounded-full ${dotColor} ring-2 ring-white`} />
   );
 }
 
-export default function EmployeesPage() {
+export default function EmployeeDirectory() {
   const navigate = useNavigate();
   const [employeesList, setEmployeesList] = useState([]);
   const [total, setTotal] = useState(0);
@@ -26,20 +25,21 @@ export default function EmployeesPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const params = new URLSearchParams({ search: query, role }).toString();
-        const res = await employeesService.list(params);
-        setEmployeesList(res.employees || []);
-        setTotal(res.total || 0);
-      } catch (err) {
-        setError(err.message || 'Failed to fetch employees');
-      } finally {
-        setLoading(false);
-      }
-    })();
+    fetchEmployees();
   }, [query, role]);
+
+  async function fetchEmployees() {
+    setLoading(true);
+    try {
+      const { employees, total: t } = await hrService.listEmployees({ search: query, role });
+      setEmployeesList(employees || []);
+      setTotal(t || employees?.length || 0);
+    } catch (err) {
+      setError('Failed to load employees');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const filtered = employeesList.filter((e) => {
     if (department && e.department !== department) return false;
@@ -58,7 +58,7 @@ export default function EmployeesPage() {
         </div>
         <Button
           className="bg-[#0D3B2E] hover:bg-[#0A2E24] text-white font-bold py-2.5 px-6 rounded-xl border-none"
-          onClick={() => navigate('/admin/employees/new')}
+          onClick={() => navigate('/hr/employees/new')}
         >
           <Plus className="h-4 w-4 mr-2" /> New Employee
         </Button>
@@ -112,7 +112,7 @@ export default function EmployeesPage() {
           <button
             key={e.id}
             type="button"
-            onClick={() => navigate(`/admin/employees/${e.id}`)}
+            onClick={() => navigate(`/hr/employees/${e.id}`)}
             className="group relative flex flex-col items-center rounded-2xl border border-gray-100 bg-white p-8 text-center shadow-sm transition-all hover:shadow-md hover:ring-2 hover:ring-green-500/20"
           >
             <div className="absolute right-4 top-4">

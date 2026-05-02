@@ -16,4 +16,20 @@ router.get('/', requireAuth, requireRole('ADMIN', 'HR_OFFICER'), ctrl.listAll);
 // GET /me — My attendance history [EMPLOYEE]
 router.get('/me', requireAuth, requireRole('EMPLOYEE'), ctrl.getHistory);
 
+// Regularization
+router.post('/regularize', requireAuth, requireRole('EMPLOYEE'), ctrl.requestRegularization);
+router.get('/regularization/queue', requireAuth, requireRole('ADMIN', 'HR_OFFICER'), ctrl.getRegularizationQueue);
+router.patch('/regularization/:id', requireAuth, requireRole('ADMIN', 'HR_OFFICER'), ctrl.updateRegularizationStatus);
+
+// HR specific: Get another employee's attendance
+router.get('/employee/:employeeId', requireAuth, requireRole('ADMIN', 'HR_OFFICER'), async (req, res, next) => {
+  try {
+    const { limit = 30, offset = 0 } = req.query;
+    const result = await service.getEmployeeAttendance(req.params.employeeId, parseInt(limit), parseInt(offset));
+    res.json(result);
+  } catch (e) { next(e); }
+});
+
 module.exports = router;
+
+

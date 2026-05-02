@@ -10,5 +10,9 @@ router.get('/employee', requireAuth, requireRole('EMPLOYEE'), ctrl.getEmployeeDa
 // GET /admin — Admin dashboard [ADMIN]
 router.get('/admin', requireAuth, requireRole('ADMIN'), ctrl.getAdminDashboard);
 
+// GET /hr — HR dashboard [ADMIN, HR_OFFICER]
+router.get('/hr', requireAuth, requireRole('ADMIN', 'HR_OFFICER'), ctrl.getHRDashboard);
+
+
 module.exports = router;
 

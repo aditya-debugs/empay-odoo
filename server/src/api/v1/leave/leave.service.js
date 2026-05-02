@@ -129,4 +129,13 @@ async function updateLeaveStatus(leaveId, approvedById, { status, adminNote }) {
   });
 }
 
-module.exports = { getMyLeaves, getMyLeaveBalance, applyLeave, getLeaveQueue, updateLeaveStatus };
+async function getEmployeeLeaves(employeeId) {
+  const leaves = await prisma.leave.findMany({
+    where: { employeeId },
+    orderBy: { createdAt: 'desc' }
+  });
+  return { leaves };
+}
+
+module.exports = { getMyLeaves, getMyLeaveBalance, applyLeave, getLeaveQueue, updateLeaveStatus, getEmployeeLeaves };
+

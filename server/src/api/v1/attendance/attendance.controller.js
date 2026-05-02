@@ -30,5 +30,27 @@ exports.listAll = async (req, res, next) => {
   } catch (e) { next(e); }
 };
 
+exports.requestRegularization = async (req, res, next) => {
+  try {
+    const result = await service.requestRegularization(req.user.id, req.body);
+    res.status(201).json(result);
+  } catch (e) { next(e); }
+};
+
+exports.getRegularizationQueue = async (req, res, next) => {
+  try {
+    const result = await service.getRegularizationQueue();
+    res.json(result);
+  } catch (e) { next(e); }
+};
+
+exports.updateRegularizationStatus = async (req, res, next) => {
+  try {
+    const result = await service.updateRegularizationStatus(req.params.id, req.user.id, req.body);
+    res.json(result);
+  } catch (e) { next(e); }
+};
+
+
 module.exports = exports;
 

@@ -4,12 +4,14 @@ import {
   X, 
   Clock, 
   Calendar, 
-  MessageSquare
+  MessageSquare,
+  AlertCircle,
+  CheckCircle2
 } from 'lucide-react';
 import { Card, Button, Avatar } from '../../../features/ui';
-import api from '../../../services/api';
+import hrService from '../hrService';
 
-export default function LeaveApprovalPage() {
+export default function HRLeaveQueue() {
   const [leaves, setLeaves] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -22,8 +24,8 @@ export default function LeaveApprovalPage() {
   const loadQueue = async () => {
     setLoading(true);
     try {
-      const data = await api.get('/leave/queue');
-      // Sync with HR module data handling
+      const data = await hrService.getLeaveQueue();
+      // Data might be { leaves: [] } or just []
       setLeaves(data.leaves || data || []);
     } catch (err) {
       setError(err.message || 'Failed to load leave queue');
@@ -38,7 +40,7 @@ export default function LeaveApprovalPage() {
 
     setSubmitting(id);
     try {
-      await api.patch(`/leave/${id}/status`, { status, adminNote });
+      await hrService.updateLeaveStatus(id, status, adminNote);
       await loadQueue();
     } catch (err) {
       alert('Error updating status: ' + err.message);
