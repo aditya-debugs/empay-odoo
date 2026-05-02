@@ -10,6 +10,7 @@ import {
   DEPARTMENTS, ROLES, EMPLOYMENT_TYPES,
   generateLoginId, employees,
 } from '../../../features/employees/employeeMocks';
+import api from '../../../services/api';
 
 function Section({ title, icon: Icon, children }) {
   return (
@@ -83,10 +84,23 @@ export default function CreateEmployeePage() {
   async function onSubmit(e) {
     e.preventDefault();
     setSubmitting(true);
-    // Mock submit. Backend wiring lands when POST /api/v1/users is implemented.
-    await new Promise((r) => setTimeout(r, 600));
-    setSubmitted({ loginId: loginIdPreview, tempPassword: tempPasswordPreview, email: form.workEmail });
-    setSubmitting(false);
+    try {
+      const payload = {
+        ...form,
+        loginId: loginIdPreview,
+        password: tempPasswordPreview,
+      };
+      const response = await api.post('/users', payload);
+      setSubmitted({ 
+        loginId: response.user.loginId, 
+        tempPassword: tempPasswordPreview, 
+        email: form.workEmail 
+      });
+    } catch (err) {
+      alert(err.message || 'Failed to create employee');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   if (submitted) {
