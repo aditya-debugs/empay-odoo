@@ -8,9 +8,11 @@
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "db:push": "prisma db push"
+    "db:push": "prisma db push",
+    "db:reset:DANGER": "node scripts/db-reset.js",
+    "prisma:migrate": "node scripts/blocked-migrate.js",
+    "users:list": "node scripts/users-list.js"
   },
   "keywords": [],
   "author": "",

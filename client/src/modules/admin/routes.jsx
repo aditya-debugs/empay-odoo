@@ -5,6 +5,11 @@ import EmployeesPage from './pages/EmployeesPage';
 import CreateEmployeePage from './pages/CreateEmployeePage';
 import EmployeeProfilePage from './pages/EmployeeProfilePage';
 import UsersPage from './pages/UsersPage';
+import PayrollPage from './pages/PayrollPage';
+import PayrunPreviewPage from './pages/PayrunPreviewPage';
+import PayrunDetailPage from './pages/PayrunDetailPage';
+import PayslipViewerPage from './pages/PayslipViewerPage';
+import SettingsPage from './pages/SettingsPage';
 
 export default function AdminRoutes() {
   return (
@@ -22,11 +27,18 @@ export default function AdminRoutes() {
       <Route path="employees/new"    element={<CreateEmployeePage mode="employee" />} />
       <Route path="employees/:id"    element={<EmployeeProfilePage />} />
 
+      {/* Payroll */}
+      <Route path="payroll"                  element={<PayrollPage />} />
+      <Route path="payroll/preview"          element={<PayrunPreviewPage />} />
+      <Route path="payroll/payslip/:id"      element={<PayslipViewerPage />} />
+      <Route path="payroll/:year/:month"     element={<PayrunDetailPage />} />
+
+      {/* Settings */}
+      <Route path="settings"         element={<SettingsPage />} />
+
       <Route path="attendance" element={<ComingSoon title="Attendance" hint="Daily / weekly / monthly views, manual override." />} />
       <Route path="leaves"     element={<ComingSoon title="Time Off" hint="Approval queue, policies, balance allocation." />} />
-      <Route path="payroll"    element={<ComingSoon title="Payroll Override" hint="Reopen, bonus injection, dispute queue." />} />
       <Route path="reports"    element={<ComingSoon title="Reports" hint="Attendance, leave, payroll, headcount with exports." />} />
-      <Route path="settings"   element={<ComingSoon title="Settings" hint="Company, attendance, payroll, leave, holidays." />} />
       <Route path="*"          element={<Navigate to="dashboard" replace />} />
     </Routes>
   );

@@ -1,3 +1,15 @@
-// TODO — Implement controllers for the settings slice.
-// Each controller should call into ./settings.service.js and forward errors via next(err).
-module.exports = {};
+const service = require('./settings.service');
+
+exports.get = async (_req, res, next) => {
+  try {
+    const settings = await service.getSettings();
+    res.json({ settings, supportedStates: service.getSupportedStates() });
+  } catch (e) { next(e); }
+};
+
+exports.update = async (req, res, next) => {
+  try {
+    const settings = await service.updateSettings(req.body);
+    res.json({ settings });
+  } catch (e) { next(e); }
+};

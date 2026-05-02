@@ -4,10 +4,15 @@ const { requireAuth, requireRole } = require('../../../middleware/auth');
 
 const router = Router();
 
-// GET /me — My payslips [EMPLOYEE]
-router.get('/me', requireAuth, requireRole('EMPLOYEE'), ctrl.getPayslips);
+router.use(requireAuth);
 
-// GET /:id — Get payslip detail
-router.get('/:id', requireAuth, ctrl.getPayslipDetail);
+// Employee — list own
+router.get('/me', requireRole('EMPLOYEE'), ctrl.getPayslips);
+
+// Admin / Payroll — list all
+router.get('/', requireRole('ADMIN', 'PAYROLL_OFFICER'), ctrl.listAll);
+
+// Single payslip — controller enforces self vs admin/payroll
+router.get('/:id', ctrl.getPayslipDetail);
 
 module.exports = router;
