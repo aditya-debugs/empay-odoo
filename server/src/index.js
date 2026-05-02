@@ -14,6 +14,14 @@ app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
 app.use('/api/v1', apiV1);
 
+// Centralised error handler — controllers call next(err) with optional err.status
+// eslint-disable-next-line no-unused-vars
+app.use((err, _req, res, _next) => {
+  const status = err.status || 500;
+  if (status >= 500) console.error(err);
+  res.status(status).json({ message: err.message || 'Internal server error' });
+});
+
 const server = app.listen(env.port, () => {
   console.log(`[empay] server listening on http://localhost:${env.port} (${env.nodeEnv})`);
 });
