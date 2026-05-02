@@ -44,7 +44,7 @@ export default function TopBar() {
         </button>
 
         <div className="flex items-center gap-3 border-l border-border pl-3">
-          <Avatar name={user?.name} size="sm" />
+          <Avatar name={user?.name} src={user?.employee?.avatarUrl ? import.meta.env.VITE_API_URL.replace('/api/v1', '') + user.employee.avatarUrl : null} size="sm" />
           <div className="hidden text-right sm:block">
             <div className="text-sm font-medium leading-tight text-ink">{user?.name}</div>
             <div className="text-xs text-ink-muted">{roleLabels[user?.role]}</div>

@@ -26,5 +26,6 @@ router.use('/payslip-disputes', require('./payslip-disputes/payslip-disputes.rou
 router.use('/dashboard',        require('./dashboard/dashboard.routes'));
 router.use('/settings',         require('./settings/settings.routes'));
 router.use('/reports',          require('./reports/reports.routes'));
+router.use('/upload',           require('./upload/upload.routes'));
 
 module.exports = router;

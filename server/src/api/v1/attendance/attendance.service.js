@@ -144,7 +144,8 @@ async function listAllAttendance({ date, search } = {}) {
     include: { 
       employee: { 
         include: { user: { select: { name: true, email: true } } } 
-      } 
+      },
+      regularization: true
     },
     orderBy: { checkIn: 'desc' }
   });
@@ -152,5 +153,103 @@ async function listAllAttendance({ date, search } = {}) {
   return { records };
 }
 
-module.exports = { checkIn, checkOut, getAttendanceHistory, listAllAttendance };
+// ==========================================
+// Regularization
+// ==========================================
+
+async function raiseRegularization(userId, { date, reason }) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { employee: true }
+  });
+
+  if (!user || !user.employee) throw new Error('Employee record not found');
+
+  const targetDate = new Date(date);
+  targetDate.setHours(0, 0, 0, 0);
+
+  // Upsert attendance record as ABSENT (if it didn't exist) so we can attach a request
+  const attendance = await prisma.attendance.upsert({
+    where: {
+      employeeId_date: { employeeId: user.employee.id, date: targetDate }
+    },
+    create: {
+      employeeId: user.employee.id,
+      date: targetDate,
+      status: 'ABSENT' // Start as absent
+    },
+    update: {}
+  });
+
+  const existingReq = await prisma.attendanceRegularization.findUnique({
+    where: { attendanceId: attendance.id }
+  });
+
+  if (existingReq && existingReq.status !== 'REJECTED') {
+    throw new Error('A pending or approved regularization request already exists for this date.');
+  }
+
+  const req = await prisma.attendanceRegularization.upsert({
+    where: { attendanceId: attendance.id },
+    create: {
+      attendanceId: attendance.id,
+      reason,
+      status: 'PENDING'
+    },
+    update: {
+      reason,
+      status: 'PENDING',
+      reviewedById: null,
+      reviewedAt: null
+    }
+  });
+
+  return req;
+}
+
+async function listRegularizationRequests() {
+  const requests = await prisma.attendanceRegularization.findMany({
+    include: {
+      attendance: {
+        include: {
+          employee: { include: { user: { select: { name: true, email: true } } } }
+        }
+      }
+    },
+    orderBy: { createdAt: 'desc' }
+  });
+  return requests;
+}
+
+async function reviewRegularization(reqId, reviewerId, { status }) {
+  if (!['APPROVED', 'REJECTED'].includes(status)) {
+    throw new Error('Invalid status');
+  }
+
+  const req = await prisma.attendanceRegularization.update({
+    where: { id: reqId },
+    data: {
+      status,
+      reviewedById: reviewerId,
+      reviewedAt: new Date()
+    },
+    include: { attendance: true }
+  });
+
+  // If approved, update the attendance status to REGULARIZED
+  if (status === 'APPROVED') {
+    await prisma.attendance.update({
+      where: { id: req.attendanceId },
+      data: {
+        status: 'REGULARIZED',
+        // We could also set a dummy checkIn/checkOut or hours worked here if required.
+        // For now we just mark it as regularized (present equivalent).
+      }
+    });
+  }
+
+  return req;
+}
+
+module.exports = { checkIn, checkOut, getAttendanceHistory, listAllAttendance, raiseRegularization, listRegularizationRequests, reviewRegularization };
 

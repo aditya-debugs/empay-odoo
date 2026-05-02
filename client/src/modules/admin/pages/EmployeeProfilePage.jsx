@@ -70,7 +70,7 @@ export default function EmployeeProfilePage() {
       {/* Header */}
       <Card className="mt-4 p-6">
         <div className="flex flex-wrap items-center gap-5">
-          <Avatar name={`${employee.firstName} ${employee.lastName}`} size="lg" className="h-20 w-20 text-xl" />
+          <Avatar src={employee.avatarUrl ? import.meta.env.VITE_API_URL.replace('/api/v1', '') + employee.avatarUrl : null} name={`${employee.firstName} ${employee.lastName}`} size="lg" className="h-20 w-20 text-xl" />
           <div className="flex-1 min-w-[200px]">
             <h1 className="text-2xl font-semibold tracking-tight">{employee.firstName} {employee.lastName}</h1>
             <p className="mt-1 text-sm text-ink-muted">
@@ -96,7 +96,7 @@ export default function EmployeeProfilePage() {
         {active === 'resume'   && <ResumeTab e={employee} />}
         {active === 'private'  && <PrivateInfoTab e={employee} />}
         {active === 'salary' && isFinancePrivileged && <SalaryInfoTab e={employee} />}
-        {active === 'settings' && <SettingsTab />}
+        {active === 'settings' && <SettingsTab e={employee} />}
       </div>
     </div>
   );
@@ -221,14 +221,30 @@ function SummaryTile({ label, value, tone }) {
   );
 }
 
-function SettingsTab() {
+function SettingsTab({ e }) {
+  const [loading, setLoading] = useState(false);
+
+  const handleResetPassword = async () => {
+    if (!window.confirm(`Are you sure you want to reset the password for ${e.firstName}? An email will be sent with the new temporary password.`)) return;
+    setLoading(true);
+    try {
+      await usersService.resetPassword(e.id);
+      alert('Password reset successful. New credentials have been emailed to the user.');
+    } catch (err) {
+      alert(err.message || 'Failed to reset password');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Card className="p-6">
       <h2 className="text-base font-semibold">Account Actions</h2>
-      <p className="mt-1 text-sm text-ink-muted">Use the Users &amp; Roles tab to perform reset / deactivate / delete actions.</p>
+      <p className="mt-1 text-sm text-ink-muted">Perform reset / deactivate / delete actions.</p>
       <div className="mt-5 flex flex-wrap gap-3">
-        <Button variant="outline" leftIcon={<Lock className="h-4 w-4" />}>Reset password</Button>
-        <Button variant="outline" leftIcon={<Mail className="h-4 w-4" />}>Re-send credentials</Button>
+        <Button variant="outline" loading={loading} onClick={handleResetPassword} leftIcon={<Mail className="h-4 w-4" />}>
+          Reset & Re-send credentials
+        </Button>
         <Button variant="danger">Deactivate account</Button>
       </div>
     </Card>

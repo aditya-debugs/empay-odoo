@@ -16,4 +16,13 @@ router.get('/', requireAuth, requireRole('ADMIN', 'HR_OFFICER'), ctrl.listAll);
 // GET /me — My attendance history [EMPLOYEE]
 router.get('/me', requireAuth, requireRole('EMPLOYEE'), ctrl.getHistory);
 
+// POST /regularize — Employee requests regularization [EMPLOYEE]
+router.post('/regularize', requireAuth, requireRole('EMPLOYEE'), ctrl.raiseRegularization);
+
+// GET /regularize — List all regularization requests [ADMIN, HR_OFFICER]
+router.get('/regularize', requireAuth, requireRole('ADMIN', 'HR_OFFICER'), ctrl.listRegularizations);
+
+// PATCH /regularize/:id — Review a regularization request [ADMIN, HR_OFFICER]
+router.patch('/regularize/:id', requireAuth, requireRole('ADMIN', 'HR_OFFICER'), ctrl.reviewRegularization);
+
 module.exports = router;

@@ -175,6 +175,43 @@ export default function CreateEmployeePage({ mode = 'employee' }) {
         </Card>
 
         <Section title="Personal Information" icon={UserIcon}>
+          <div className="md:col-span-2 flex flex-col gap-1.5 border-b border-ink-100 pb-4 mb-2">
+            <label className="text-sm font-medium text-ink">Profile Picture (Avatar)</label>
+            <div className="flex items-center gap-4">
+              {form.avatarUrl ? (
+                <img src={import.meta.env.VITE_API_URL.replace('/api/v1', '') + form.avatarUrl} alt="Avatar" className="h-16 w-16 rounded-full object-cover" />
+              ) : (
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-surface-muted text-ink-muted">
+                  <UserIcon className="h-8 w-8" />
+                </div>
+              )}
+              <div className="flex flex-col gap-2">
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  className="text-sm text-ink-soft file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const formData = new FormData();
+                    formData.append('avatar', file);
+                    try {
+                      const res = await fetch(`${import.meta.env.VITE_API_URL}/upload/avatar`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+                        body: formData
+                      });
+                      const data = await res.json();
+                      if (data.url) setForm(f => ({ ...f, avatarUrl: data.url }));
+                    } catch (err) {
+                      console.error("Upload failed", err);
+                      alert("Upload failed");
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          </div>
           <Input label="First Name"     value={form.firstName}     onChange={setEv('firstName')}     required />
           <Input label="Last Name"      value={form.lastName}      onChange={setEv('lastName')}      required />
           <Input label="Date of Birth"  type="date" value={form.dob} onChange={setEv('dob')} />
