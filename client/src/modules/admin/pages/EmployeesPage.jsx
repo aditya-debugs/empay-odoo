@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Plus, Plane } from 'lucide-react';
 import { Avatar, Button } from '../../../features/ui';
-import { DEPARTMENTS, ROLES } from '../../../features/employees/employeeMocks';
+import { DEPARTMENTS, ALL_ROLES } from '../../../features/employees/employeeMocks';
 import api from '../../../services/api';
 
 import { employeesService } from '../../../services/usersService';
@@ -47,15 +47,18 @@ export default function EmployeesPage() {
   const [query, setQuery] = useState('');
   const [department, setDepartment] = useState('');
   const [role, setRole] = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
     (async () => {
       setLoading(true);
       try {
-        const res = await api.get(`/employees?search=${query}&role=${role}`);
+        const params = new URLSearchParams({ search: query, role }).toString();
+        const res = await employeesService.list(params);
         setEmployeesList(res.employees || []);
         setTotal(res.total || 0);
       } catch (err) {
+        setError(err.message || 'Failed to fetch employees');
         console.error('Failed to fetch employees', err);
       } finally {
         setLoading(false);

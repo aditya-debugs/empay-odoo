@@ -1,6 +1,6 @@
 const service = require('./employees.service');
 
-exports.list = async (_req, res, next) => {
+exports.list = async (req, res, next) => {
   try {
     const { search = '', role, limit = 50, offset = 0 } = req.query;
     const result = await service.listEmployees({ 

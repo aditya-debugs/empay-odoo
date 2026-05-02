@@ -108,7 +108,7 @@ async function createUser(input, creatorId) {
     });
 
     let employee = null;
-    if (user.role !== 'ADMIN') {
+    if (newUser.role !== 'ADMIN') {
       employee = await tx.employee.create({
         data: {
         userId: newUser.id,

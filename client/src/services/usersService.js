@@ -13,7 +13,7 @@ export const usersService = {
 };
 
 export const employeesService = {
-  list: ()    => api.get('/employees'),
+  list: (params = '') => api.get(`/employees${params ? `?${params}` : ''}`),
   get:  (id)  => api.get(`/employees/${id}`),
 };
 
