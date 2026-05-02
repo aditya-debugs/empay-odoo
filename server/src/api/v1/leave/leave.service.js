@@ -22,8 +22,7 @@ async function getMyLeaveBalance(userId) {
 
   const balances = await prisma.leaveAllocation.findMany({
     where: { 
-      employeeId: employee.id,
-      year: new Date().getFullYear()
+      employeeId: employee.id
     }
   });
 
@@ -31,16 +30,36 @@ async function getMyLeaveBalance(userId) {
 }
 
 async function applyLeave(userId, data) {
-  const { type, startDate, endDate, reason } = data;
+  const { type, startDate, endDate, reason, attachmentUrl } = data;
   
   const employee = await prisma.employee.findUnique({
     where: { userId }
   });
   if (!employee) throw new Error('Employee not found');
 
-  // Calculate days (simple difference)
   const start = new Date(startDate);
   const end = new Date(endDate);
+
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    const err = new Error('Invalid date provided. Please enter a valid start and end date.');
+    err.status = 400;
+    throw err;
+  }
+
+  const year = start.getFullYear();
+  if (year < 2000 || year > 2100) {
+    const err = new Error(`Invalid year "${year}" in start date. Please enter a valid date.`);
+    err.status = 400;
+    throw err;
+  }
+
+  if (end < start) {
+    const err = new Error('End date cannot be before start date');
+    err.status = 400;
+    throw err;
+  }
+
+  // Calculate days (simple difference)
   const diffTime = Math.abs(end - start);
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
@@ -52,6 +71,7 @@ async function applyLeave(userId, data) {
       endDate: end,
       days: diffDays,
       reason,
+      attachmentUrl,
       status: 'PENDING'
     }
   });
@@ -82,38 +102,28 @@ async function updateLeaveStatus(leaveId, approvedById, { status, adminNote }) {
     
     // 2. If transitioning TO approved, deduct from allocation
     if (status === 'APPROVED' && leave.status !== 'APPROVED') {
-      const year = new Date(leave.startDate).getFullYear();
-      
-      // Update balance
-      await tx.leaveAllocation.update({
-        where: {
-          employeeId_type_year: {
-            employeeId: leave.employeeId,
-            type: leave.type,
-            year: year
-          }
-        },
-        data: {
-          usedDays: { increment: leave.days }
-        }
+      const allocation = await tx.leaveAllocation.findFirst({
+        where: { employeeId: leave.employeeId, type: leave.type }
       });
+      if (allocation) {
+        await tx.leaveAllocation.update({
+          where: { id: allocation.id },
+          data: { usedDays: { increment: leave.days } }
+        });
+      }
     }
     
-    // 3. If transitioning FROM approved to rejected/pending, restore balance (optional but good)
+    // 3. If transitioning FROM approved to rejected/pending, restore balance
     if (leave.status === 'APPROVED' && status !== 'APPROVED') {
-      const year = new Date(leave.startDate).getFullYear();
-      await tx.leaveAllocation.update({
-        where: {
-          employeeId_type_year: {
-            employeeId: leave.employeeId,
-            type: leave.type,
-            year: year
-          }
-        },
-        data: {
-          usedDays: { decrement: leave.days }
-        }
+      const allocation = await tx.leaveAllocation.findFirst({
+        where: { employeeId: leave.employeeId, type: leave.type }
       });
+      if (allocation) {
+        await tx.leaveAllocation.update({
+          where: { id: allocation.id },
+          data: { usedDays: { decrement: leave.days } }
+        });
+      }
     }
 
     // 4. Update the leave record

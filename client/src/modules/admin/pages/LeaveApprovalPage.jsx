@@ -99,10 +99,25 @@ export default function LeaveApprovalPage() {
                       </div>
                     </div>
 
-                    <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
-                      <div className="flex items-start gap-2">
-                        <MessageSquare className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
-                        <p className="text-sm text-gray-700 italic">"{leave.reason}"</p>
+                    <div className="mt-3 p-3 bg-ink-50 rounded-lg border border-ink-100">
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-start gap-2">
+                          <MessageSquare className="h-4 w-4 text-ink-muted mt-0.5 shrink-0" />
+                          <p className="text-sm text-ink italic">"{leave.reason}"</p>
+                        </div>
+                        {leave.attachmentUrl && (
+                          <div className="pt-2 mt-1 border-t border-ink-200">
+                            <a 
+                              href={`${import.meta.env.VITE_API_URL.replace('/api/v1', '')}/uploads/${leave.attachmentUrl}`} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="inline-flex items-center gap-2 px-3 py-1.5 bg-brand-50 text-brand-700 hover:bg-brand-100 rounded-md text-xs font-semibold transition-colors"
+                            >
+                              <Check className="h-3 w-3" />
+                              View Medical Certificate / Evidence
+                            </a>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

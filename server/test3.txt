@@ -1,0 +1,15 @@
+PrismaClientKnownRequestError: 
+Invalid `prisma.attendance.findMany()` invocation in
+C:\Users\Administrator\Desktop\empay-odoo\server\src\api\v1\attendance\attendance.service.js:139:43
+
+  136   throw err;
+  137 }
+  138 
+→ 139 const records = await prisma.attendance.findMany(
+The table `public.AttendanceLog` does not exist in the current database.
+    at $n.handleRequestError (C:\Users\Administrator\Desktop\empay-odoo\server\node_modules\@prisma\client\runtime\library.js:121:7315)
+    at $n.handleAndLogRequestError (C:\Users\Administrator\Desktop\empay-odoo\server\node_modules\@prisma\client\runtime\library.js:121:6623)
+    at $n.request (C:\Users\Administrator\Desktop\empay-odoo\server\node_modules\@prisma\client\runtime\library.js:121:6307)
+    at async l (C:\Users\Administrator\Desktop\empay-odoo\server\node_modules\@prisma\client\runtime\library.js:130:9633)
+    at async Object.getAttendanceHistory (C:\Users\Administrator\Desktop\empay-odoo\server\src\api\v1\attendance\attendance.service.js:139:19)
+    at async test (C:\Users\Administrator\Desktop\empay-odoo\server\test3.js:9:5)

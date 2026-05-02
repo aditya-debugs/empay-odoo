@@ -156,23 +156,6 @@ export default function CreateEmployeePage({ mode = 'employee' }) {
       </div>
 
       <form onSubmit={onSubmit} className="mt-6 space-y-5">
-        {/* Login ID format preview */}
-        <Card className="border-brand-300 bg-brand-50 p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div className="text-xs uppercase tracking-wider text-brand-700">Login ID format</div>
-              <div className="mt-1 font-mono text-lg font-semibold text-ink">{loginIdPreview}</div>
-              <div className="mt-1 text-xs text-ink-muted">
-                <span className="font-mono">[Company][First-2][Last-2][Year][Serial]</span> — final serial assigned on save.
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="text-xs uppercase tracking-wider text-brand-700">Temporary password</div>
-              <div className="mt-1 font-mono text-lg font-semibold text-ink">Generated on save</div>
-              <div className="mt-1 text-xs text-ink-muted">Forced reset on first login.</div>
-            </div>
-          </div>
-        </Card>
 
         <Section title="Personal Information" icon={UserIcon}>
           <div className="md:col-span-2 flex flex-col gap-1.5 border-b border-ink-100 pb-4 mb-2">

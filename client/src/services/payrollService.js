@@ -1,25 +1,24 @@
 import api from './api';
 
-export const settingsService = {
-  get:    () => api.get('/settings'),
-  update: (patch) => api.patch('/settings', patch),
-};
-
 export const payrollService = {
-  preview:        ({ month, year, adjustments }) =>
-    api.post(`/payroll/preview?month=${month}&year=${year}`, { adjustments: adjustments || [] }),
-  process:        (payload) => api.post('/payroll/process', payload),
-  listRuns:       () => api.get('/payroll/runs'),
-  getRun:         (year, month, version) =>
-    api.get(`/payroll/${year}/${month}${version ? `?version=${version}` : ''}`),
-};
-
-export const payslipsService = {
-  listAll: ({ year, month } = {}) => {
-    const q = [year && `year=${year}`, month && `month=${month}`].filter(Boolean).join('&');
+  getDashboardStats:   () => api.get('/payroll/dashboard'),
+  previewPayroll:      (month) => api.get(`/payroll/preview?month=${month}`),
+  processPayroll:      (month) => api.post('/payroll/process', { month }),
+  getPayslips:         (filters) => {
+    const q = new URLSearchParams(filters).toString();
     return api.get(`/payslips${q ? `?${q}` : ''}`);
   },
-  get:    (id) => api.get(`/payslips/${id}`),
+  getPayslipById:      (id) => api.get(`/payslips/${id}`),
+  generatePayslipPDF:  (id) => api.post(`/payslips/${id}/generate-pdf`),
+  raiseDispute:        (payslipId, reason) => api.post('/payslip-disputes', { payslipId, reason }),
+  getDisputes:         (status) => api.get(`/payslip-disputes${status ? `?status=${status}` : ''}`),
+  resolveDispute:      (id, note) => api.patch(`/payslip-disputes/${id}/resolve`, { note }),
+  reissueDispute:      (id, note) => api.patch(`/payslip-disputes/${id}/reissue`, { note }),
+  rejectDispute:       (id, note) => api.patch(`/payslip-disputes/${id}/reject`, { note }),
+  getReport:           (type, params) => {
+    const q = new URLSearchParams(params).toString();
+    return api.get(`/reports/${type}${q ? `?${q}` : ''}`);
+  }
 };
 
-export default { settingsService, payrollService, payslipsService };
+export default payrollService;

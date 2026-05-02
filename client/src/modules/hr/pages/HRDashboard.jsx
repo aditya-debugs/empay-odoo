@@ -189,71 +189,24 @@ export default function HRDashboard() {
               </Link>
             </div>
           </div>
-
-          <Card className="p-6 border-gray-100 shadow-sm bg-white rounded-2xl">
-            {/* Heat Map Legend */}
-            <div className="mb-6 pb-4 border-b border-gray-100">
-              <p className="text-xs font-semibold text-gray-600 mb-3">Leave Intensity Legend:</p>
-              <div className="flex gap-6">
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: 'rgba(34, 197, 94, 0.2)' }}
-                  />
-                  <span className="text-xs text-gray-600">1-2 employees</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: 'rgba(34, 197, 94, 0.5)' }}
-                  />
-                  <span className="text-xs text-gray-600">3-7 employees</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: 'rgba(34, 197, 94, 1)' }}
-                  />
-                  <span className="text-xs text-gray-600">8+ employees</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-7 gap-2 text-xs font-semibold text-gray-600 mb-3 pb-3 border-b border-gray-200">
-              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
-                <div key={d} className="text-center py-2">
-                  {d}
-                </div>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-7 gap-2">
-              {calendarCells.map((cell, idx) => {
-                // Fix timezone issue: format date in local timezone without toISOString
-                const pad = (n) => String(n).padStart(2, '0');
-                const iso = `${cell.date.getFullYear()}-${pad(cell.date.getMonth() + 1)}-${pad(cell.date.getDate())}`;
-                const leaves = leavesByDate[iso] || [];
-                const inMonth = cell.inMonth;
-                const isSelected = selectedDate === iso;
-                // Calculate heat map intensity: light green for few leaves, dark green for many
-                const leaveIntensity = Math.min(leaves.length / 10, 1);
-                return (
-                  <button
-                    key={idx}
-                    onClick={() => setSelectedDate(inMonth ? iso : null)}
-                    disabled={!inMonth}
-                    className={`p-2 h-[65px] text-left rounded-lg transition-all border-2 flex flex-col items-center justify-center ${
-                      isSelected
-                        ? 'border-[#198754] bg-green-50'
-                        : inMonth
-                          ? 'border-gray-100 hover:border-gray-300 hover:bg-gray-50'
-                          : 'border-transparent opacity-25'
-                    }`}
-                  >
-                    <div
-                      className={`text-sm font-bold ${inMonth ? 'text-gray-900' : 'text-gray-400'}`}
-                    >
-                      {cell.date.getDate()}
+          
+          <Card className="min-h-[300px] flex flex-col justify-center border-gray-100 shadow-sm bg-white rounded-2xl overflow-hidden">
+            {pendingLeaves.length > 0 ? (
+              <div className="divide-y divide-gray-50 h-full">
+                {pendingLeaves.map(leave => (
+                  <div key={leave.id} className="p-5 flex items-center justify-between hover:bg-gray-50 transition-colors group">
+                    <div className="flex items-center gap-4">
+                      <Avatar name={leave.employee.user.name} className="h-10 w-10 font-bold" />
+                      <div>
+                        <p className="font-bold text-gray-900">{leave.employee.user.name}</p>
+                        <p className="text-xs text-gray-500 font-medium">
+                          {leave.type.replace('_', ' ')} • <span className="text-blue-600">{leave.days} days</span>
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" variant="ghost" className="text-red-500 hover:bg-red-50 font-bold">Reject</Button>
+                      <Button size="sm" className="bg-[#198754] hover:bg-[#157347] text-white border-none font-bold px-4">Approve</Button>
                     </div>
                     {leaves.length > 0 && (
                       <div className="flex flex-col items-center gap-1 mt-1">
