@@ -71,14 +71,61 @@ async function getLeaveQueue() {
 }
 
 async function updateLeaveStatus(leaveId, approvedById, { status, adminNote }) {
-  return prisma.leave.update({
-    where: { id: leaveId },
-    data: {
-      status,
-      approvedById,
-      approvedAt: new Date(),
-      reviewNote: adminNote
+  return prisma.$transaction(async (tx) => {
+    // 1. Get current leave data
+    const leave = await tx.leave.findUnique({
+      where: { id: leaveId },
+      select: { id: true, status: true, days: true, type: true, employeeId: true, startDate: true }
+    });
+
+    if (!leave) throw new Error('Leave record not found');
+    
+    // 2. If transitioning TO approved, deduct from allocation
+    if (status === 'APPROVED' && leave.status !== 'APPROVED') {
+      const year = new Date(leave.startDate).getFullYear();
+      
+      // Update balance
+      await tx.leaveAllocation.update({
+        where: {
+          employeeId_type_year: {
+            employeeId: leave.employeeId,
+            type: leave.type,
+            year: year
+          }
+        },
+        data: {
+          usedDays: { increment: leave.days }
+        }
+      });
     }
+    
+    // 3. If transitioning FROM approved to rejected/pending, restore balance (optional but good)
+    if (leave.status === 'APPROVED' && status !== 'APPROVED') {
+      const year = new Date(leave.startDate).getFullYear();
+      await tx.leaveAllocation.update({
+        where: {
+          employeeId_type_year: {
+            employeeId: leave.employeeId,
+            type: leave.type,
+            year: year
+          }
+        },
+        data: {
+          usedDays: { decrement: leave.days }
+        }
+      });
+    }
+
+    // 4. Update the leave record
+    return tx.leave.update({
+      where: { id: leaveId },
+      data: {
+        status,
+        approvedById,
+        approvedAt: new Date(),
+        reviewNote: adminNote
+      }
+    });
   });
 }
 
