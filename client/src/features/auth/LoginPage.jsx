@@ -12,7 +12,10 @@ export default function LoginPage() {
   const location = useLocation();
   const { user, login } = useAuth();
 
-  const [identifier, setIdentifier] = useState('');
+  const successMessage = location.state?.message || '';
+  const prefillEmail = location.state?.prefillEmail || '';
+
+  const [identifier, setIdentifier] = useState(prefillEmail);
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -23,7 +26,7 @@ export default function LoginPage() {
   }, [user, navigate]);
 
   useEffect(() => {
-    authService.adminExists().then(({ exists }) => setAdminExists(exists)).catch(() => {});
+    authService.adminExists().then(({ exists }) => setAdminExists(exists)).catch(() => { });
   }, []);
 
   async function onSubmit(e) {
@@ -57,6 +60,11 @@ export default function LoginPage() {
       }
     >
       <form className="flex flex-col gap-4" onSubmit={onSubmit}>
+        {successMessage && (
+          <div className="rounded-xl bg-success-50 px-3 py-2 text-sm text-success-700">
+            {successMessage}
+          </div>
+        )}
         <Input
           label="Email or Login ID"
           placeholder="you@company.com or EM2410001"

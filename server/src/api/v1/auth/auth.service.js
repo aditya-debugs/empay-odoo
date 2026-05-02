@@ -21,7 +21,7 @@ async function adminExists() {
   return count > 0;
 }
 
-async function registerAdmin({ email, password, name }) {
+async function registerAdmin({ email, password, name, companyName, phone }) {
   if (await adminExists()) {
     const err = new Error('An admin already exists. Self-signup is locked.');
     err.status = 409;
@@ -35,7 +35,7 @@ async function registerAdmin({ email, password, name }) {
   }
   const passwordHash = await hashPassword(password);
   const user = await prisma.user.create({
-    data: { email, passwordHash, name, role: 'ADMIN' },
+    data: { email, passwordHash, name, companyName, phone, role: 'ADMIN' },
     select: PUBLIC_USER_FIELDS,
   });
   return { user, token: issueToken(user) };
