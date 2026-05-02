@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Play, FileText, ChevronRight } from 'lucide-react';
 import { Card, Button } from '../../../features/ui';
-import { payrollService } from '../../../services/payrollService';
+import api from '../../../services/api';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -22,8 +22,8 @@ export default function PayrollPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    payrollService.listRuns()
-      .then(({ runs }) => setRuns(runs))
+    api.get('/payroll/runs').catch(() => ([]))
+      .then((res) => setRuns(res.runs || res || []))
       .catch((e) => setError(e.message || 'Failed to load payruns'))
       .finally(() => setLoading(false));
   }, []);
@@ -49,6 +49,9 @@ export default function PayrollPage() {
             Process payroll for any month. Salary structure & statutory rules come from <span className="font-medium text-ink">Settings</span>.
           </p>
         </div>
+        <Button variant="outline" onClick={() => navigate('/admin/payroll/disputes')}>
+          View Dispute Queue
+        </Button>
       </div>
 
       {/* Run-payroll card */}

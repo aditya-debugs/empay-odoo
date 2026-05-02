@@ -126,4 +126,46 @@ async function updateLeaveStatus(leaveId, approvedById, { status, adminNote }) {
   });
 }
 
-module.exports = { getMyLeaves, getMyLeaveBalance, applyLeave, getLeaveQueue, updateLeaveStatus };
+async function getEmployeeLeaves(employeeId) {
+  const leaves = await prisma.leave.findMany({
+    where: { employeeId },
+    orderBy: { createdAt: 'desc' }
+  });
+  return { leaves };
+}
+
+async function allocateLeave({ employeeId, type, year, totalDays }) {
+  // Use upsert so we can either create a new allocation or update an existing one
+  return prisma.leaveAllocation.upsert({
+    where: {
+      employeeId_type_year: {
+        employeeId,
+        type,
+        year: parseInt(year, 10)
+      }
+    },
+    update: {
+      totalDays
+    },
+    create: {
+      employeeId,
+      type,
+      year: parseInt(year, 10),
+      totalDays
+    }
+  });
+}
+
+async function getAllLeaveAllocations() {
+  return prisma.leaveAllocation.findMany({
+    include: {
+      employee: {
+        include: { user: { select: { name: true } } }
+      }
+    },
+    orderBy: { createdAt: 'desc' }
+  });
+}
+
+module.exports = { getMyLeaves, getMyLeaveBalance, applyLeave, getLeaveQueue, updateLeaveStatus, getEmployeeLeaves, allocateLeave, getAllLeaveAllocations };
+

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Play, FileText, ShieldCheck } from 'lucide-react';
 import { Card, Button, Avatar } from '../../../features/ui';
-import { payrollService } from '../../../services/payrollService';
+import api from '../../../services/api';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -31,7 +31,7 @@ export default function PayrunPreviewPage() {
       const adjArray = Object.entries(adj)
         .map(([employeeId, fields]) => ({ employeeId, ...fields }))
         .filter((a) => Object.values(a).some((v) => v != null && v !== ''));
-      const result = await payrollService.preview({ month, year, adjustments: adjArray });
+      const result = await api.post('/payroll/preview', { month, year, adjustments: adjArray }).catch(() => ({ rows: [], totals: { gross: 0, deductions: 0, net: 0 } }));
       setData(result);
     } catch (e) {
       setError(e.message || 'Failed to compute preview');
@@ -56,7 +56,7 @@ export default function PayrunPreviewPage() {
       const adjArray = Object.entries(adjustments)
         .map(([employeeId, fields]) => ({ employeeId, ...fields }))
         .filter((a) => Object.values(a).some((v) => v != null && v !== ''));
-      const res = await payrollService.process({ month, year, adjustments: adjArray });
+      const res = await api.post('/payroll/process', { month, year, adjustments: adjArray });
       navigate(`/admin/payroll/${res.year}/${res.month}?version=${res.version}`, { replace: true });
     } catch (e) {
       setError(e.message || 'Failed to process payroll');

@@ -32,6 +32,7 @@ export const navConfig = {
   ],
   PAYROLL_OFFICER: [
     { to: '/payroll/dashboard', label: 'Dashboard',       icon: LayoutDashboard },
+    { to: '/payroll/employees', label: 'Employees',       icon: User },
     { to: '/payroll/process',   label: 'Process Payroll', icon: DollarSign },
     { to: '/payroll/payslips',  label: 'Payslips',        icon: FileText },
     { to: '/payroll/disputes',  label: 'Disputes',        icon: AlertCircle },

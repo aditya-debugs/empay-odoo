@@ -1,4 +1,9 @@
-require('dotenv').config();
+const result = require('dotenv').config();
+if (result.error) {
+  console.error('[env] Error loading .env file:', result.error);
+} else {
+  console.log('[env] .env file loaded successfully. Keys found:', Object.keys(result.parsed || {}));
+}
 
 const required = ['DATABASE_URL', 'JWT_SECRET'];
 const missing = required.filter((key) => !process.env[key]);

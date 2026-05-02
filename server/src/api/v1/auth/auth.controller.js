@@ -35,4 +35,13 @@ exports.changePassword = async (req, res, next) => {
   } catch (e) { next(e); }
 };
 
+exports.verifyEmail = async (req, res, next) => {
+  try {
+    const { token } = req.query;
+    if (!token) return res.status(400).json({ message: 'Token is required' });
+    const result = await service.verifyEmail(token);
+    res.json(result);
+  } catch (e) { next(e); }
+};
+
 exports.logout = (_req, res) => res.status(204).end();

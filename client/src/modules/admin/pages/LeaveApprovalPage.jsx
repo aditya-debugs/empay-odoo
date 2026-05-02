@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
+import { 
+  Check, 
+  X, 
+  Clock, 
+  Calendar, 
+  MessageSquare
+} from 'lucide-react';
 import { Card, Button, Avatar } from '../../../features/ui';
-import { Check, X, Clock, Calendar, MessageSquare } from 'lucide-react';
 import api from '../../../services/api';
 
 export default function LeaveApprovalPage() {
@@ -17,7 +23,8 @@ export default function LeaveApprovalPage() {
     setLoading(true);
     try {
       const data = await api.get('/leave/queue');
-      setLeaves(data.leaves || []);
+      // Sync with HR module data handling
+      setLeaves(data.leaves || data || []);
     } catch (err) {
       setError(err.message || 'Failed to load leave queue');
     } finally {
@@ -27,7 +34,7 @@ export default function LeaveApprovalPage() {
 
   const handleStatusUpdate = async (id, status) => {
     const adminNote = window.prompt(`Enter a note for ${status.toLowerCase()} (optional):`);
-    if (adminNote === null) return; // Cancelled
+    if (adminNote === null) return;
 
     setSubmitting(id);
     try {
@@ -40,52 +47,54 @@ export default function LeaveApprovalPage() {
     }
   };
 
-  if (loading) return <div className="p-8">Loading queue...</div>;
+  if (loading) return <div className="p-8 text-ink-muted animate-pulse">Loading leave queue...</div>;
 
   const pending = leaves.filter(l => l.status === 'PENDING');
   const processed = leaves.filter(l => l.status !== 'PENDING');
 
   return (
-    <div className="px-8 py-8 bg-surface min-h-screen">
-      <h1 className="text-3xl font-semibold tracking-tight">Leave Approvals</h1>
-      <p className="mt-1 text-sm text-ink-muted">Review and manage employee leave requests</p>
+    <div className="px-8 py-10 space-y-10 min-h-screen bg-[#F8F9FA]">
+      <div className="space-y-1">
+        <h1 className="text-3xl font-bold tracking-tight text-gray-900">Leave Approvals</h1>
+        <p className="text-sm text-gray-500 font-medium">Review and manage employee leave requests</p>
+      </div>
 
-      {error && <div className="mt-4 p-3 bg-danger-50 text-danger-700 rounded-lg text-sm">{error}</div>}
+      {error && <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">{error}</div>}
 
-      <div className="mt-8 space-y-8">
-        {/* Pending Requests */}
-        <section>
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-lg font-semibold">Pending Requests</h2>
-            <span className="bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full text-xs font-medium">
-              {pending.length}
-            </span>
+      {/* Pending Requests Section */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-bold text-gray-800">Pending Requests</h2>
+          <span className="bg-[#E9ECEF] text-gray-700 px-2.5 py-0.5 rounded-full text-xs font-bold">
+            {pending.length}
+          </span>
+        </div>
+        
+        {pending.length === 0 ? (
+          <div className="p-16 text-center text-gray-400 italic border border-dashed border-gray-300 rounded-2xl bg-white">
+            No pending leave requests
           </div>
-          
-          {pending.length === 0 ? (
-            <Card className="p-8 text-center text-ink-muted italic border-dashed">
-              No pending leave requests
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              {pending.map((leave) => (
-                <Card key={leave.id} className="p-5 flex flex-col justify-between hover:shadow-md transition-shadow">
+        ) : (
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            {pending.map((leave) => (
+              <Card key={leave.id} className="p-6 border-gray-100 shadow-sm bg-white hover:shadow-md transition-all">
+                <div className="flex flex-col justify-between h-full">
                   <div>
-                    <div className="flex items-center gap-3">
-                      <Avatar name={leave.employee?.user?.name} size="md" />
+                    <div className="flex items-center gap-4">
+                      <Avatar name={leave.employee?.user?.name} className="h-12 w-12 text-lg" />
                       <div>
-                        <h3 className="font-semibold text-ink">{leave.employee?.user?.name}</h3>
-                        <p className="text-xs text-ink-muted">{leave.employee?.department} • {leave.employee?.position}</p>
+                        <h3 className="font-bold text-gray-900">{leave.employee?.user?.name}</h3>
+                        <p className="text-xs text-gray-500 font-medium">{leave.employee?.department || 'Engineering'}</p>
                       </div>
                     </div>
 
-                    <div className="mt-4 grid grid-cols-2 gap-4">
-                      <div className="flex items-center gap-2 text-sm text-ink-muted">
-                        <Calendar className="h-4 w-4" />
+                    <div className="mt-6 grid grid-cols-2 gap-4">
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Calendar className="h-4 w-4 text-gray-400" />
                         <span>{new Date(leave.startDate).toLocaleDateString()} - {new Date(leave.endDate).toLocaleDateString()}</span>
                       </div>
-                      <div className="flex items-center gap-2 text-sm text-ink-muted">
-                        <Clock className="h-4 w-4" />
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Clock className="h-4 w-4 text-gray-400" />
                         <span>{leave.days} Days ({leave.type.replace('_', ' ')})</span>
                       </div>
                     </div>
@@ -113,85 +122,85 @@ export default function LeaveApprovalPage() {
                     </div>
                   </div>
 
-                  <div className="mt-6 flex gap-2">
+                  <div className="mt-8 flex gap-3">
                     <Button
-                      className="flex-1 bg-success-600 hover:bg-success-700"
-                      leftIcon={<Check className="h-4 w-4" />}
-                      loading={submitting === leave.id}
+                      className="flex-1 bg-[#198754] hover:bg-[#157347] text-white border-none font-bold py-2.5 rounded-xl"
                       onClick={() => handleStatusUpdate(leave.id, 'APPROVED')}
+                      loading={submitting === leave.id}
                     >
+                      <Check className="h-4 w-4 mr-2" />
                       Approve
                     </Button>
                     <Button
                       variant="outline"
-                      className="flex-1 text-danger-600 border-danger-200 hover:bg-danger-50"
-                      leftIcon={<X className="h-4 w-4" />}
-                      loading={submitting === leave.id}
+                      className="flex-1 text-[#DC3545] border-red-100 hover:bg-red-50 font-bold py-2.5 rounded-xl"
                       onClick={() => handleStatusUpdate(leave.id, 'REJECTED')}
+                      loading={submitting === leave.id}
                     >
+                      <X className="h-4 w-4 mr-2" />
                       Reject
                     </Button>
                   </div>
-                </Card>
-              ))}
-            </div>
-          )}
-        </section>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </section>
 
-        {/* Recently Processed */}
-        <section>
-          <h2 className="text-lg font-semibold mb-4">Recently Processed</h2>
-          <Card className="overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-ink-50 border-b border-ink-200">
-                  <tr>
-                    <th className="px-6 py-3 font-semibold text-ink-muted">Employee</th>
-                    <th className="px-6 py-3 font-semibold text-ink-muted">Dates</th>
-                    <th className="px-6 py-3 font-semibold text-ink-muted">Type</th>
-                    <th className="px-6 py-3 font-semibold text-ink-muted">Status</th>
-                    <th className="px-6 py-3 font-semibold text-ink-muted">Processed At</th>
+      {/* Recently Processed Section */}
+      <section className="space-y-4">
+        <h2 className="text-lg font-bold text-gray-800">Recently Processed</h2>
+        <Card className="overflow-hidden border-gray-100 shadow-sm bg-white rounded-2xl">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-white border-b border-gray-100">
+                  <th className="px-8 py-5 text-[13px] font-semibold text-gray-500">Employee</th>
+                  <th className="px-8 py-5 text-[13px] font-semibold text-gray-500">Dates</th>
+                  <th className="px-8 py-5 text-[13px] font-semibold text-gray-500">Type</th>
+                  <th className="px-8 py-5 text-[13px] font-semibold text-gray-500">Status</th>
+                  <th className="px-8 py-5 text-[13px] font-semibold text-gray-500">Processed At</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {processed.map((leave) => (
+                  <tr key={leave.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-8 py-5">
+                      <div className="font-bold text-gray-900">{leave.employee?.user?.name}</div>
+                      <div className="text-[11px] text-gray-500 font-medium uppercase tracking-wider">{leave.employee?.department || 'Engineering'}</div>
+                    </td>
+                    <td className="px-8 py-5">
+                      <div className="text-gray-900 font-bold">{new Date(leave.startDate).toLocaleDateString()}</div>
+                      <div className="text-[11px] text-gray-500 font-medium">{leave.days} Days</div>
+                    </td>
+                    <td className="px-8 py-5 text-[13px] font-medium text-gray-600">
+                      {leave.type.replace('_', ' ')}
+                    </td>
+                    <td className="px-8 py-5">
+                      <span className={`text-[12px] font-bold ${
+                        leave.status === 'APPROVED' ? 'text-[#198754]' : 'text-[#DC3545]'
+                      }`}>
+                        {leave.status}
+                      </span>
+                    </td>
+                    <td className="px-8 py-5 text-[13px] text-gray-500">
+                      {leave.approvedAt ? new Date(leave.approvedAt).toLocaleDateString() : '-'}
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-ink-100">
-                  {processed.map((leave) => (
-                    <tr key={leave.id} className="hover:bg-ink-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="font-medium text-ink">{leave.employee?.user?.name}</div>
-                        <div className="text-xs text-ink-muted">{leave.employee?.department}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-ink">{new Date(leave.startDate).toLocaleDateString()}</div>
-                        <div className="text-xs text-ink-muted">{leave.days} Days</div>
-                      </td>
-                      <td className="px-6 py-4 text-ink-muted">
-                        {leave.type.replace('_', ' ')}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2 py-1 rounded-full text-[11px] font-medium ${
-                          leave.status === 'APPROVED' ? 'bg-success-100 text-success-700' : 'bg-danger-100 text-danger-700'
-                        }`}>
-                          {leave.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-ink-muted text-xs">
-                        {leave.approvedAt ? new Date(leave.approvedAt).toLocaleDateString() : '-'}
-                      </td>
-                    </tr>
-                  ))}
-                  {processed.length === 0 && (
-                    <tr>
-                      <td colSpan="5" className="px-6 py-10 text-center text-ink-muted italic">
-                        No processed requests yet
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        </section>
-      </div>
+                ))}
+                {processed.length === 0 && (
+                  <tr>
+                    <td colSpan="5" className="px-8 py-20 text-center text-gray-400 italic">
+                      No processed requests found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      </section>
     </div>
   );
 }

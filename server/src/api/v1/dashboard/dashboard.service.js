@@ -142,5 +142,104 @@ async function getAdminDashboard() {
   };
 }
 
-module.exports = { getEmployeeDashboard, getAdminDashboard };
+async function getPayrollDashboard() {
+  const pendingDisputes = await prisma.payslipDispute.count({
+    where: { status: 'OPEN' }
+  });
 
+  const payrollRuns = await prisma.payslip.groupBy({
+    by: ['year', 'month', 'status'],
+    _count: { _all: true },
+    where: { status: 'GENERATED' }
+  });
+
+  const totalGenerated = payrollRuns.reduce((sum, run) => sum + run._count._all, 0);
+
+  const thisMonth = new Date().getMonth() + 1;
+  const thisYear = new Date().getFullYear();
+
+  const currentRun = await prisma.payslip.count({
+    where: { month: thisMonth, year: thisYear, status: 'GENERATED' }
+  });
+
+  return {
+    pendingDisputes,
+    totalGenerated,
+    currentRun,
+    recentActivity: [
+      { text: `${currentRun} payslips generated for this month.` },
+      { text: `${pendingDisputes} disputes waiting for review.` }
+    ]
+  };
+}
+
+async function getHRDashboard() {
+  const totalEmployees = await prisma.employee.count({ where: { status: 'ACTIVE' } });
+  
+  // Attendance today
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const attendanceToday = await prisma.attendance.findMany({
+    where: {
+      date: { gte: today, lt: tomorrow }
+    }
+  });
+
+  const presentToday = attendanceToday.filter(a => a.status === 'PRESENT').length;
+  const onLeaveToday = attendanceToday.filter(a => a.status === 'ON_LEAVE').length;
+  const absentToday = attendanceToday.filter(a => a.status === 'ABSENT').length;
+
+  // Pending leave requests
+  const pendingLeaves = await prisma.leave.findMany({
+    where: { status: 'PENDING' },
+    include: { employee: { include: { user: true } } },
+    orderBy: { createdAt: 'desc' },
+    take: 5
+  });
+
+  const pendingLeavesCount = await prisma.leave.count({
+    where: { status: 'PENDING' }
+  });
+
+  // New joiners (last 30 days)
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  
+  const newJoiners = await prisma.employee.findMany({
+    where: {
+      joinDate: { gte: thirtyDaysAgo },
+      status: 'ACTIVE'
+    },
+    include: { user: true },
+    orderBy: { joinDate: 'desc' },
+    take: 5
+  });
+
+  return {
+    stats: {
+      totalEmployees,
+      presentToday,
+      onLeaveToday,
+      absentToday,
+      pendingLeavesCount
+    },
+    pendingLeaves,
+    newJoiners: newJoiners.map(e => ({
+      id: e.user.id,
+      name: e.user.name,
+      department: e.department,
+      position: e.position,
+      joinDate: e.joinDate
+    }))
+  };
+}
+
+module.exports = { 
+  getEmployeeDashboard, 
+  getAdminDashboard, 
+  getPayrollDashboard, 
+  getHRDashboard 
+};

@@ -3,6 +3,21 @@ import { Card, Button } from '../../../features/ui';
 import { Clock, LogIn, LogOut, CheckCircle, AlertCircle, History, Search, Zap, List } from 'lucide-react';
 import api from '../../../services/api';
 
+function Modal({ isOpen, onClose, title, children }) {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/50 p-4">
+      <Card className="w-full max-w-md p-6 relative">
+        <button onClick={onClose} className="absolute right-4 top-4 text-ink-muted hover:text-ink">
+          <X className="h-5 w-5" />
+        </button>
+        <h2 className="text-lg font-bold text-ink mb-4">{title}</h2>
+        {children}
+      </Card>
+    </div>
+  );
+}
+
 export default function AttendancePage() {
   const [attendance, setAttendance] = useState([]);
   const [loading, setLoading] = useState(true);

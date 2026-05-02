@@ -22,11 +22,11 @@ export default function PayslipsPage() {
     setLoading(true);
     try {
       const [payslipsData, disputesData] = await Promise.all([
-        api.get('/payslips/me'),
-        api.get('/payslip-disputes/me').catch(() => ({ disputes: [] }))
+        api.get('/payslips'),
+        api.get('/payslip-disputes').catch(() => ([]))
       ]);
-      setPayslips(payslipsData.payslips || []);
-      setDisputes(disputesData.disputes || []);
+      setPayslips(payslipsData || []);
+      setDisputes(disputesData || []);
     } catch (err) {
       setError(err.message || 'Failed to load payslips');
     } finally {

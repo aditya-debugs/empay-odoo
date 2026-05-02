@@ -12,5 +12,6 @@ router.post('/login', validate(loginSchema), ctrl.login);
 router.post('/logout', ctrl.logout);
 router.get('/me', requireAuth, ctrl.me);
 router.post('/change-password', requireAuth, ctrl.changePassword);
+router.get('/verify-email', ctrl.verifyEmail);
 
 module.exports = router;

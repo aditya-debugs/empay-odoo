@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '../features/auth/AuthContext';
 import LoginPage from '../features/auth/LoginPage';
 import SignupPage from '../modules/admin/auth/SignupPage';
+import VerifyEmailPage from '../modules/admin/auth/VerifyEmailPage';
 import AdminRoutes from '../modules/admin/routes';
 import HRRoutes from '../modules/hr/routes';
 import PayrollRoutes from '../modules/payroll-officer/routes';
@@ -36,6 +37,7 @@ export default function App() {
           {/* Public auth routes */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/admin/signup" element={<SignupPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
 
           {/* Role-protected sections */}
           <Route

@@ -13,6 +13,7 @@ const app = express();
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use(cors({ origin: env.clientUrl, credentials: true }));
 app.use(express.json());
+app.use('/uploads', express.static('uploads'));
 
 // Liveness probe (no DB) — for load balancers / uptime checks
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));

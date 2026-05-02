@@ -18,6 +18,7 @@ exports.createUserSchema = z.object({
   dob:           DATE.optional().nullable(),
   personalEmail: z.email().optional().or(z.literal('').transform(() => undefined)),
   personalPhone: z.string().optional().nullable(),
+  avatarUrl:     z.string().optional().nullable(),
 
   // Employment
   workEmail:      z.email('Invalid work email'),
