@@ -90,7 +90,7 @@ export default function CreateEmployeePage({ mode = 'employee' }) {
     setError('');
     setSubmitting(true);
     try {
-      // Coerce numeric fields from text inputs
+      // Coerce numeric fields from text inputs (loginId + tempPassword are server-generated)
       const payload = {
         ...form,
         basicSalary: Number(form.basicSalary || 0),

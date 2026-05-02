@@ -14,3 +14,19 @@ exports.get = async (req, res, next) => {
     res.json({ employee });
   } catch (e) { next(e); }
 };
+
+// Self-service — the authenticated user updates their own profile / bank details.
+// Used by the Employee module.
+exports.updateProfile = async (req, res, next) => {
+  try {
+    const employee = await service.updateOwnProfile(req.user.id, req.body);
+    res.json({ employee });
+  } catch (e) { next(e); }
+};
+
+exports.updateBankDetails = async (req, res, next) => {
+  try {
+    const employee = await service.updateBankDetails(req.user.id, req.body);
+    res.json({ employee });
+  } catch (e) { next(e); }
+};

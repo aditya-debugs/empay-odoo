@@ -6,13 +6,16 @@ const router = Router();
 
 router.use(requireAuth);
 
-// GET  /employees       — directory listing (any authenticated user)
-router.get('/', ctrl.list);
+// Self-service routes — must come BEFORE /:id parametric routes so that
+// "profile" / "bank-details" don't get parsed as an :id.
+router.patch('/profile',      ctrl.updateProfile);
+router.patch('/bank-details', ctrl.updateBankDetails);
 
-// GET  /employees/:id   — single employee profile
-router.get('/:id', ctrl.get);
+// Directory routes
+router.get('/',     ctrl.list);
+router.get('/:id',  ctrl.get);
 
 // TODO (next iteration): POST /, PATCH /:id, POST /:id/avatar, POST /:id/send-credentials
-// These belong to the HR-officer module; admin uses /users for creation.
+// HR-officer module owns admin-side employee creation; admin uses /users for creation.
 
 module.exports = router;

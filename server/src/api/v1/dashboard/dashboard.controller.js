@@ -1,3 +1,17 @@
-// TODO — Implement controllers for the dashboard slice.
-// Each controller should call into ./dashboard.service.js and forward errors via next(err).
-module.exports = {};
+const service = require('./dashboard.service');
+
+exports.getEmployeeDashboard = async (req, res, next) => {
+  try {
+    const dashboard = await service.getEmployeeDashboard(req.user.id);
+    res.json(dashboard);
+  } catch (e) { next(e); }
+};
+
+exports.getAdminDashboard = async (req, res, next) => {
+  try {
+    const dashboard = await service.getAdminDashboard();
+    res.json(dashboard);
+  } catch (e) { next(e); }
+};
+
+module.exports = exports;
