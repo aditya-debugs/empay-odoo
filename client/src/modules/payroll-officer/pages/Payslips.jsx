@@ -1,20 +1,22 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Card } from '../../../features/ui';
+import { Card, Input } from '../../../features/ui';
 import { useAuth } from '../../../features/auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../../../services/api';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export default function Payslips() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  
-  const [monthFilter, setMonthFilter] = useState('');
+
+  const [monthFilter, setMonthFilter] = useState(new Date().toISOString().split('T')[0]);
   const [nameFilter, setNameFilter] = useState('');
-  
+
   const [payslips, setPayslips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
   const [page, setPage] = useState(0);
   const ITEMS_PER_PAGE = 10;
 
@@ -73,17 +75,81 @@ export default function Payslips() {
   const paginatedPayslips = filteredPayslips.slice(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE);
   const totalPages = Math.ceil(filteredPayslips.length / ITEMS_PER_PAGE);
 
-  const handleDownloadPdf = async (id, e) => {
+  const handleDownloadPdf = (id, e) => {
     if (e) e.stopPropagation();
+    const p = payslips.find(item => item.id === id) || selectedPayslip;
+    if (!p) return;
+
     setIsDownloading(true);
     try {
-      const res = await api.post(`/payslips/${id}/generate-pdf`);
-      setToastMessage('PDF generated successfully!');
-      // Normally we would open res.pdfPath in new tab
-      if (res.pdfPath) {
-        // window.open(res.pdfPath, '_blank'); // Disabled for demo stability if file doesn't exist
-        console.log('PDF PATH:', res.pdfPath);
-      }
+      const doc = new jsPDF();
+      const monthName = getMonthName(p.month, p.year);
+
+      // Header
+      doc.setFontSize(22);
+      doc.setTextColor(21, 128, 61); // brand-700
+      doc.text('EmPay', 105, 20, { align: 'center' });
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      doc.text('PAYSLIP - ' + monthName.toUpperCase(), 105, 28, { align: 'center' });
+
+      // Employee Info
+      doc.setDrawColor(200);
+      doc.line(20, 35, 190, 35);
+
+      doc.setFontSize(12);
+      doc.setTextColor(0);
+      const empName = `${p.employee?.firstName || ''} ${p.employee?.lastName || ''}`.trim();
+      doc.text(`Employee: ${empName}`, 20, 45);
+      doc.text(`Designation: ${p.employee?.designation || 'Staff'}`, 20, 52);
+
+      doc.text(`Period: ${monthName}`, 120, 45);
+      doc.text(`Salary Structure: Regular Pay`, 120, 52);
+
+      // Earnings Table
+      const earningsData = (p.earnings || []).map(e => [e.label, 'INR ' + (Number(e.amount) || 0).toLocaleString('en-IN')]);
+      autoTable(doc, {
+        startY: 65,
+        head: [['Earnings', 'Amount']],
+        body: [
+          ...earningsData,
+          [{ content: 'Gross Earnings', styles: { fontStyle: 'bold' } }, { content: 'INR ' + (Number(p.grossSalary) || 0).toLocaleString('en-IN'), styles: { fontStyle: 'bold' } }]
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: [21, 128, 61] },
+        margin: { left: 20, right: 110 }
+      });
+
+      // Deductions Table
+      const deductionsData = (p.deductions || []).map(d => [d.label, 'INR ' + (Number(d.amount) || 0).toLocaleString('en-IN')]);
+      autoTable(doc, {
+        startY: 65,
+        head: [['Deductions', 'Amount']],
+        body: [
+          ...deductionsData,
+          [{ content: 'Total Deductions', styles: { fontStyle: 'bold' } }, { content: 'INR ' + (Number(p.totalDeductions) || 0).toLocaleString('en-IN'), styles: { fontStyle: 'bold' } }]
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: [185, 28, 28] },
+        margin: { left: 110, right: 20 }
+      });
+
+      // Net Salary
+      const finalY = Math.max(doc.lastAutoTable?.finalY || 65, 65);
+      doc.setFillColor(240, 253, 244); // green-50
+      doc.rect(20, finalY + 10, 170, 25, 'F');
+      doc.setFontSize(10);
+      doc.setTextColor(21, 128, 61);
+      doc.text('NET PAYABLE SALARY', 105, finalY + 20, { align: 'center' });
+      doc.setFontSize(18);
+      doc.text('INR ' + (Number(p.netSalary) || 0).toLocaleString('en-IN'), 105, finalY + 30, { align: 'center' });
+
+      doc.setFontSize(8);
+      doc.setTextColor(150);
+      doc.text(`Version ${p.version || 1} - System Generated on ${new Date().toLocaleDateString()}`, 105, finalY + 45, { align: 'center' });
+
+      doc.save(`Payslip_${empName.replace(' ', '_')}_${monthName.replace(' ', '_')}.pdf`);
+      setToastMessage('PDF downloaded successfully!');
     } catch (err) {
       setToastMessage(`Error: ${err.message}`);
     } finally {
@@ -132,14 +198,16 @@ export default function Payslips() {
 
       <Card className="p-6">
         <div className="flex flex-col sm:flex-row gap-4 items-center">
-          <input 
-            type="month" 
+          <Input 
+            type="date" 
             value={monthFilter}
-            onChange={e => setMonthFilter(e.target.value)}
-            className="border border-gray-300 rounded-md px-4 py-2 focus:ring-brand-500 outline-none w-full sm:w-auto"
-            placeholder="Filter by month"
+            onChange={e => {
+              setMonthFilter(e.target.value);
+              setPage(0);
+            }}
+            className="w-full sm:w-auto"
           />
-          <input 
+          <Input 
             type="text" 
             value={nameFilter}
             onChange={e => {
@@ -147,7 +215,12 @@ export default function Payslips() {
               setPage(0);
             }}
             placeholder="Search by employee name..."
-            className="border border-gray-300 rounded-md px-4 py-2 focus:ring-brand-500 outline-none flex-1"
+            className="flex-1"
+            leftIcon={
+              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            }
           />
         </div>
       </Card>
@@ -174,7 +247,7 @@ export default function Payslips() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Employee Name</th>
-                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">ID / Period</th>
+                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Period</th>
                   <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Gross</th>
                   <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Net Salary</th>
                   <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Generated</th>
@@ -193,25 +266,17 @@ export default function Payslips() {
                         )}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
-                        {p.employee?.id.substring(0,8)} <br/>
-                        <span className="text-xs text-gray-400">{getMonthName(p.month, p.year)}</span>
+                        <span className="text-sm">{getMonthName(p.month, p.year)}</span>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">{formatINR(p.grossSalary)}</td>
                       <td className="px-6 py-4 text-sm font-bold text-gray-900">{formatINR(p.netSalary)}</td>
                       <td className="px-6 py-4 text-sm text-gray-500">{new Date(p.createdAt).toLocaleDateString()}</td>
                       <td className="px-6 py-4 text-sm font-medium space-x-3">
-                        <button 
+                        <button
                           onClick={() => setSelectedPayslip(p)}
                           className="text-brand-600 hover:text-brand-900"
                         >
                           View
-                        </button>
-                        <button 
-                          onClick={(e) => handleDownloadPdf(p.id, e)}
-                          disabled={isDownloading}
-                          className="text-gray-600 hover:text-gray-900 disabled:opacity-50"
-                        >
-                          PDF
                         </button>
                       </td>
                     </tr>
@@ -222,16 +287,16 @@ export default function Payslips() {
           </div>
           {totalPages > 1 && (
             <div className="px-6 py-3 border-t border-gray-200 flex justify-between items-center bg-gray-50">
-              <button 
-                disabled={page === 0} 
+              <button
+                disabled={page === 0}
                 onClick={() => setPage(p => p - 1)}
                 className="px-3 py-1 text-sm border rounded hover:bg-gray-100 disabled:opacity-50"
               >
                 Previous
               </button>
               <span className="text-sm text-gray-500">Page {page + 1} of {totalPages}</span>
-              <button 
-                disabled={page >= totalPages - 1} 
+              <button
+                disabled={page >= totalPages - 1}
                 onClick={() => setPage(p => p + 1)}
                 className="px-3 py-1 text-sm border rounded hover:bg-gray-100 disabled:opacity-50"
               >
@@ -253,14 +318,14 @@ export default function Payslips() {
                   {selectedPayslip.employee?.firstName} {selectedPayslip.employee?.lastName} — {getMonthName(selectedPayslip.month, selectedPayslip.year)}
                 </p>
               </div>
-              <button 
-                onClick={() => { setSelectedPayslip(null); setShowDisputeForm(false); }} 
+              <button
+                onClick={() => { setSelectedPayslip(null); setShowDisputeForm(false); }}
                 className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-200 transition"
               >
                 ✕
               </button>
             </div>
-            
+
             <div className="p-6 flex-1 bg-white">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Earnings Section */}
@@ -297,7 +362,7 @@ export default function Payslips() {
                   </div>
                 </div>
               </div>
-              
+
               <div className="mt-8 flex justify-end">
                 <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-right shadow-sm w-full md:w-1/2">
                   <span className="block text-sm text-green-800 font-semibold uppercase mb-1">Net Payable Salary</span>
@@ -311,7 +376,7 @@ export default function Payslips() {
               {user?.role === 'EMPLOYEE' && (
                 <div className="mt-8 border-t border-gray-100 pt-6">
                   {!showDisputeForm ? (
-                    <button 
+                    <button
                       onClick={() => setShowDisputeForm(true)}
                       className="text-red-600 font-medium hover:text-red-800 text-sm flex items-center gap-1"
                     >
@@ -321,7 +386,7 @@ export default function Payslips() {
                   ) : (
                     <div className="bg-red-50 p-4 rounded-lg border border-red-100">
                       <label className="block text-sm font-semibold text-red-800 mb-2">Describe your dispute</label>
-                      <textarea 
+                      <textarea
                         className="w-full border border-red-200 rounded p-2 text-sm focus:ring-red-500 focus:border-red-500 outline-none"
                         rows="3"
                         placeholder="E.g., Overtime bonus is missing..."
@@ -330,7 +395,7 @@ export default function Payslips() {
                       ></textarea>
                       <div className="mt-3 flex justify-end gap-2">
                         <button onClick={() => setShowDisputeForm(false)} className="px-3 py-1 text-sm text-red-700 hover:bg-red-100 rounded">Cancel</button>
-                        <button 
+                        <button
                           onClick={handleRaiseDispute}
                           disabled={submittingDispute || !disputeReason.trim()}
                           className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
@@ -346,7 +411,7 @@ export default function Payslips() {
 
             <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-between items-center rounded-b-xl">
               <span className="text-xs text-gray-400 font-medium">Version {selectedPayslip.version} — System Generated</span>
-              <button 
+              <button
                 onClick={() => handleDownloadPdf(selectedPayslip.id)}
                 disabled={isDownloading}
                 className="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded hover:bg-brand-700 transition disabled:opacity-50"

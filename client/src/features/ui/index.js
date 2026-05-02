@@ -5,4 +5,5 @@ export { Avatar } from './Avatar';
 export { Logo } from './Logo';
 export { ComingSoon } from './ComingSoon';
 export { Tabs } from './Tabs';
+export { Select } from './Select';
 export { cn } from './cn';

@@ -7,39 +7,43 @@
 
 @theme {
   /* Brand greens */
-  --color-brand-50:  #E8F1ED;
+  --color-brand-50: #E8F1ED;
   --color-brand-100: #C6DDD0;
   --color-brand-200: #9CC2AE;
   --color-brand-300: #6FA487;
   --color-brand-400: #3F7D5F;
-  --color-brand-500: #0F4C3A;  /* main brand — header / sidebar bg */
+  --color-brand-500: #0F4C3A;
+  /* main brand — header / sidebar bg */
   --color-brand-600: #0C402F;
   --color-brand-700: #0A3829;
   --color-brand-800: #06291E;
   --color-brand-900: #051C16;
 
   /* Surface / neutrals */
-  --color-surface:        #F7F8F7;  /* app background */
-  --color-surface-card:   #FFFFFF;  /* card bg */
-  --color-surface-muted:  #F1F4F2;  /* tint background (icon wells) */
-  --color-border:         #E5E9E7;
-  --color-border-strong:  #CDD4D0;
+  --color-surface: #F7F8F7;
+  /* app background */
+  --color-surface-card: #FFFFFF;
+  /* card bg */
+  --color-surface-muted: #F1F4F2;
+  /* tint background (icon wells) */
+  --color-border: #E5E9E7;
+  --color-border-strong: #CDD4D0;
 
   /* Text */
-  --color-ink:        #0F1A14;
-  --color-ink-muted:  #5A6B62;
-  --color-ink-soft:   #8A9991;
+  --color-ink: #0F1A14;
+  --color-ink-muted: #5A6B62;
+  --color-ink-soft: #8A9991;
 
   /* Status (used in stat pills, badges) */
-  --color-success-50:  #E6F5EC;
+  --color-success-50: #E6F5EC;
   --color-success-500: #1F9D55;
   --color-success-700: #0F6F38;
 
-  --color-danger-50:   #FCEAEA;
-  --color-danger-500:  #D93838;
-  --color-danger-700:  #A52525;
+  --color-danger-50: #FCEAEA;
+  --color-danger-500: #D93838;
+  --color-danger-700: #A52525;
 
-  --color-warning-50:  #FFF4E0;
+  --color-warning-50: #FFF4E0;
   --color-warning-500: #E89A1B;
 
   /* Typography */
@@ -51,7 +55,9 @@
 }
 
 /* Base */
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
 }
 
@@ -64,5 +70,11 @@ body {
 }
 
 /* Hide scrollbars in attendance heatmap-like overflow areas */
-.no-scrollbar::-webkit-scrollbar { display: none; }
-.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
