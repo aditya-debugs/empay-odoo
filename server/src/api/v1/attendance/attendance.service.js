@@ -3,7 +3,7 @@ const prisma = require('../../../config/prisma');
 async function checkIn(userId) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    include: { employee: true }
+    include: { employee: true },
   });
 
   if (!user || !user.employee) {
@@ -21,19 +21,19 @@ async function checkIn(userId) {
       where: {
         employeeId_date: {
           employeeId: user.employee.id,
-          date: todayDate
-        }
+          date: todayDate,
+        },
       },
       create: {
         employeeId: user.employee.id,
         date: todayDate,
         status: 'PRESENT',
-        checkIn: new Date()
+        checkIn: new Date(),
       },
       update: {
         status: 'PRESENT',
-        checkIn: new Date()
-      }
+        checkIn: new Date(),
+      },
     });
 
     // Add IN log entry
@@ -41,13 +41,13 @@ async function checkIn(userId) {
       data: {
         attendanceId: attendance.id,
         type: 'IN',
-        timestamp: new Date()
-      }
+        timestamp: new Date(),
+      },
     });
 
     return tx.attendance.findUnique({
       where: { id: attendance.id },
-      include: { logs: { orderBy: { timestamp: 'asc' } } }
+      include: { logs: { orderBy: { timestamp: 'asc' } } },
     });
   });
 }
@@ -55,7 +55,7 @@ async function checkIn(userId) {
 async function checkOut(userId) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    include: { employee: true }
+    include: { employee: true },
   });
 
   if (!user || !user.employee) {
@@ -72,10 +72,10 @@ async function checkOut(userId) {
       where: {
         employeeId_date: {
           employeeId: user.employee.id,
-          date: todayDate
-        }
+          date: todayDate,
+        },
       },
-      include: { logs: { orderBy: { timestamp: 'asc' } } }
+      include: { logs: { orderBy: { timestamp: 'asc' } } },
     });
 
     if (!attendance) {
@@ -87,7 +87,9 @@ async function checkOut(userId) {
     // Ensure the last log is an IN (can't check out twice in a row)
     const lastLog = attendance.logs[attendance.logs.length - 1];
     if (lastLog && lastLog.type === 'OUT') {
-      const err = new Error('You are already checked out. Please check in again to start a new session.');
+      const err = new Error(
+        'You are already checked out. Please check in again to start a new session.'
+      );
       err.status = 400;
       throw err;
     }
@@ -98,8 +100,8 @@ async function checkOut(userId) {
       data: {
         attendanceId: attendance.id,
         type: 'OUT',
-        timestamp: checkOutTime
-      }
+        timestamp: checkOutTime,
+      },
     });
 
     // Recalculate total hours from all IN/OUT pairs
@@ -122,9 +124,9 @@ async function checkOut(userId) {
       where: { id: attendance.id },
       data: {
         checkOut: checkOutTime,
-        hoursWorked: parseFloat(hoursWorked.toFixed(6))
+        hoursWorked: parseFloat(hoursWorked.toFixed(6)),
       },
-      include: { logs: { orderBy: { timestamp: 'asc' } } }
+      include: { logs: { orderBy: { timestamp: 'asc' } } },
     });
   });
 }
@@ -132,7 +134,7 @@ async function checkOut(userId) {
 async function getAttendanceHistory(userId, limit = 30, offset = 0) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    include: { employee: true }
+    include: { employee: true },
   });
 
   if (!user || !user.employee) {
@@ -146,11 +148,11 @@ async function getAttendanceHistory(userId, limit = 30, offset = 0) {
     include: { logs: { orderBy: { timestamp: 'asc' } } },
     take: limit,
     skip: offset,
-    orderBy: { date: 'desc' }
+    orderBy: { date: 'desc' },
   });
 
   const total = await prisma.attendance.count({
-    where: { employeeId: user.employee.id }
+    where: { employeeId: user.employee.id },
   });
 
   return { records, total, limit, offset };
@@ -162,20 +164,24 @@ async function listAllAttendance({ date, search } = {}) {
 
   const where = {
     date: targetDate,
-    employee: search ? {
-      user: { name: { contains: search, mode: 'insensitive' } }
-    } : undefined
+    employee: search
+      ? {
+          user: { name: { contains: search, mode: 'insensitive' } },
+        }
+      : undefined,
   };
 
   const records = await prisma.attendance.findMany({
     where,
     include: {
       employee: {
-        include: { user: { select: { name: true, email: true } } }
+        include: { user: { select: { name: true, email: true } } },
       },
-      logs: { orderBy: { timestamp: 'asc' } }
+      // 'logs' relation caused runtime errors for some generated clients —
+      // avoid including the nested logs here to keep the list API stable.
+      regularization: true,
     },
-    orderBy: { checkIn: 'desc' }
+    orderBy: { checkIn: 'desc' },
   });
 
   return { records };
