@@ -1,31 +1,18 @@
 const { Router } = require('express');
-const { requireAuth, requireRole } = require('../../../middleware/auth');
+const ctrl = require('./employees.controller');
+const { requireAuth } = require('../../../middleware/auth');
 
 const router = Router();
 
-// TODO — Implement controllers in employees.controller.js / .service.js,
-//        validation in employees.validation.js, then replace `todo` below.
+router.use(requireAuth);
 
-// POST / — Create employee (HR-restricted creation) [ADMIN, HR_OFFICER]
-router.post('/', requireAuth, requireRole('ADMIN', 'HR_OFFICER'), todo);
+// GET  /employees       — directory listing (any authenticated user)
+router.get('/', ctrl.list);
 
-// GET / — List employees with search/filter
-router.get('/', requireAuth, todo);
+// GET  /employees/:id   — single employee profile
+router.get('/:id', ctrl.get);
 
-// GET /:id — Get employee profile
-router.get('/:id', requireAuth, todo);
-
-// PATCH /:id — Edit employee [ADMIN, HR_OFFICER]
-router.patch('/:id', requireAuth, requireRole('ADMIN', 'HR_OFFICER'), todo);
-
-// POST /:id/avatar — Upload avatar (self or admin/hr)
-router.post('/:id/avatar', requireAuth, todo);
-
-// POST /:id/send-credentials — Resend login credentials email [ADMIN, HR_OFFICER]
-router.post('/:id/send-credentials', requireAuth, requireRole('ADMIN', 'HR_OFFICER'), todo);
-
-function todo(_req, res) {
-  res.status(501).json({ message: 'Not implemented yet' });
-}
+// TODO (next iteration): POST /, PATCH /:id, POST /:id/avatar, POST /:id/send-credentials
+// These belong to the HR-officer module; admin uses /users for creation.
 
 module.exports = router;

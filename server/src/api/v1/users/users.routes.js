@@ -1,37 +1,21 @@
 const { Router } = require('express');
+const ctrl = require('./users.controller');
 const { requireAuth, requireRole } = require('../../../middleware/auth');
+const { validate } = require('../../../middleware/validate');
+const { createUserSchema, changeRoleSchema } = require('./users.validation');
 
 const router = Router();
 
-// TODO — Implement controllers in users.controller.js / .service.js,
-//        validation in users.validation.js, then replace `todo` below.
+// All routes admin-only
+router.use(requireAuth, requireRole('ADMIN'));
 
-// POST / — Create user (admin creates HR/Payroll/Employee) [ADMIN]
-router.post('/', requireAuth, requireRole('ADMIN'), todo);
-
-// GET / — List users with filters [ADMIN]
-router.get('/', requireAuth, requireRole('ADMIN'), todo);
-
-// GET /:id — Get user [ADMIN]
-router.get('/:id', requireAuth, requireRole('ADMIN'), todo);
-
-// PATCH /:id — Update user [ADMIN]
-router.patch('/:id', requireAuth, requireRole('ADMIN'), todo);
-
-// PATCH /:id/deactivate — Soft delete user [ADMIN]
-router.patch('/:id/deactivate', requireAuth, requireRole('ADMIN'), todo);
-
-// DELETE /:id — Hard delete user [ADMIN]
-router.delete('/:id', requireAuth, requireRole('ADMIN'), todo);
-
-// PATCH /:id/reset-password — Reset user credentials [ADMIN]
-router.patch('/:id/reset-password', requireAuth, requireRole('ADMIN'), todo);
-
-// PATCH /:id/change-role — Change user role [ADMIN]
-router.patch('/:id/change-role', requireAuth, requireRole('ADMIN'), todo);
-
-function todo(_req, res) {
-  res.status(501).json({ message: 'Not implemented yet' });
-}
+router.post('/',                       validate(createUserSchema), ctrl.create);
+router.get('/',                                                    ctrl.list);
+router.get('/:id',                                                 ctrl.get);
+router.patch('/:id/change-role',       validate(changeRoleSchema), ctrl.changeRole);
+router.patch('/:id/deactivate',                                    ctrl.deactivate);
+router.patch('/:id/activate',                                      ctrl.activate);
+router.patch('/:id/reset-password',                                ctrl.resetPassword);
+router.delete('/:id',                                              ctrl.remove);
 
 module.exports = router;

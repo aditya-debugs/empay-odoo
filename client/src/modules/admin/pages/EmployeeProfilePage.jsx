@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Mail, Phone, MapPin, Briefcase, Building2, IndianRupee, Lock, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Mail, Briefcase, Building2, Lock, ShieldCheck } from 'lucide-react';
 import { Avatar, Card, Tabs, Button } from '../../../features/ui';
 import { useAuth } from '../../../features/auth/AuthContext';
-import { findEmployee, EMPLOYMENT_TYPES, ROLES } from '../../../features/employees/employeeMocks';
+import { EMPLOYMENT_TYPES, ALL_ROLES } from '../../../features/employees/employeeMocks';
+import usersService from '../../../services/usersService';
 
 const formatINR = (n) => '₹' + Number(n || 0).toLocaleString('en-IN');
 
@@ -11,9 +12,22 @@ export default function EmployeeProfilePage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const employee = findEmployee(id);
+
+  const [employee, setEmployee] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const isFinancePrivileged = user?.role === 'ADMIN' || user?.role === 'PAYROLL_OFFICER';
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    usersService.get(id)
+      .then(({ user: u }) => { if (active) setEmployee(u); })
+      .catch((e) => { if (active) setError(e.message || 'Failed to load profile'); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [id]);
 
   const tabs = [
     { key: 'resume', label: 'Resume' },
@@ -23,11 +37,14 @@ export default function EmployeeProfilePage() {
   ];
   const [active, setActive] = useState('resume');
 
-  if (!employee) {
+  if (loading) {
+    return <div className="flex h-full items-center justify-center px-8 py-20 text-ink-muted">Loading…</div>;
+  }
+  if (error || !employee) {
     return (
       <div className="flex h-full items-center justify-center px-8 py-20 text-center">
         <div>
-          <h2 className="text-lg font-semibold">Employee not found</h2>
+          <h2 className="text-lg font-semibold">{error || 'Employee not found'}</h2>
           <Button variant="outline" className="mt-4" onClick={() => navigate('/admin/employees')}>
             Back to directory
           </Button>
@@ -37,17 +54,17 @@ export default function EmployeeProfilePage() {
   }
 
   const empType = EMPLOYMENT_TYPES.find((t) => t.value === employee.employmentType)?.label || employee.employmentType;
-  const roleLabel = ROLES.find((r) => r.value === employee.role)?.label || employee.role;
+  const roleLabel = ALL_ROLES.find((r) => r.value === employee.role)?.label || employee.role;
 
   return (
     <div className="px-8 py-8">
       <button
         type="button"
-        onClick={() => navigate('/admin/employees')}
+        onClick={() => navigate(-1)}
         className="inline-flex items-center gap-2 text-sm text-ink-muted hover:text-ink"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to directory
+        Back
       </button>
 
       {/* Header */}
@@ -56,11 +73,13 @@ export default function EmployeeProfilePage() {
           <Avatar name={`${employee.firstName} ${employee.lastName}`} size="lg" className="h-20 w-20 text-xl" />
           <div className="flex-1 min-w-[200px]">
             <h1 className="text-2xl font-semibold tracking-tight">{employee.firstName} {employee.lastName}</h1>
-            <p className="mt-1 text-sm text-ink-muted">{employee.position} · {employee.department}</p>
+            <p className="mt-1 text-sm text-ink-muted">
+              {employee.position || '—'}{employee.department ? ` · ${employee.department}` : ''}
+            </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Pill icon={Briefcase}>{roleLabel}</Pill>
-              <Pill icon={Building2}>{empType}</Pill>
-              <Pill icon={ShieldCheck}>{employee.loginId}</Pill>
+              {empType && <Pill icon={Building2}>{empType}</Pill>}
+              {employee.loginId && <Pill icon={ShieldCheck}>{employee.loginId}</Pill>}
             </div>
           </div>
           <div className="text-xs text-ink-muted">View-only mode</div>
@@ -74,8 +93,8 @@ export default function EmployeeProfilePage() {
 
       {/* Tab content */}
       <div className="mt-6">
-        {active === 'resume' && <ResumeTab e={employee} />}
-        {active === 'private' && <PrivateInfoTab e={employee} />}
+        {active === 'resume'   && <ResumeTab e={employee} />}
+        {active === 'private'  && <PrivateInfoTab e={employee} />}
         {active === 'salary' && isFinancePrivileged && <SalaryInfoTab e={employee} />}
         {active === 'settings' && <SettingsTab />}
       </div>
@@ -103,6 +122,8 @@ function Field({ label, value }) {
   );
 }
 
+const fmtDate = (d) => (d ? new Date(d).toLocaleDateString() : '—');
+
 function ResumeTab({ e }) {
   return (
     <Card className="p-6">
@@ -110,9 +131,9 @@ function ResumeTab({ e }) {
       <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-3">
         <Field label="Designation"     value={e.position} />
         <Field label="Department"      value={e.department} />
-        <Field label="Date of Joining" value={new Date(e.joinDate).toLocaleDateString()} />
-        <Field label="Work Email"      value={e.workEmail} />
-        <Field label="Phone"           value={e.phone} />
+        <Field label="Date of Joining" value={fmtDate(e.joinDate)} />
+        <Field label="Work Email"      value={e.email} />
+        <Field label="Phone"           value={e.personalPhone} />
         <Field label="Employment Type" value={EMPLOYMENT_TYPES.find((t) => t.value === e.employmentType)?.label} />
       </div>
     </Card>
@@ -121,23 +142,34 @@ function ResumeTab({ e }) {
 
 function PrivateInfoTab({ e }) {
   return (
-    <div className="space-y-6">
-      <Card className="p-6">
-        <h2 className="text-base font-semibold">Personal Details</h2>
-        <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-3">
-          <Field label="Date of Birth"  value={new Date(e.dob).toLocaleDateString()} />
-          <Field label="Gender"         value={e.gender} />
-          <Field label="Personal Email" value={e.personalEmail} />
-        </div>
-      </Card>
-    </div>
+    <Card className="p-6">
+      <h2 className="text-base font-semibold">Personal Details</h2>
+      <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-3">
+        <Field label="Date of Birth"  value={fmtDate(e.dob)} />
+        <Field label="Gender"         value={e.gender} />
+        <Field label="Personal Email" value={e.personalEmail} />
+      </div>
+    </Card>
   );
 }
 
 function SalaryInfoTab({ e }) {
-  const gross = (e.basicSalary || 0) + (e.hra || 0) + (e.conveyance || 0) + (e.specialAllowance || 0) + (e.otherAllowance || 0);
-  const pfAmt = e.pfEnabled ? Math.round(e.basicSalary * (e.pfPercent || 12) / 100) : 0;
-  const net = gross - pfAmt - (e.professionalTax || 0);
+  if (!e.basicSalary && e.basicSalary !== 0) {
+    return (
+      <Card className="p-6">
+        <p className="text-sm text-ink-muted">No salary structure on file for this user.</p>
+      </Card>
+    );
+  }
+  const basic = Number(e.basicSalary) || 0;
+  const hra = Number(e.hra) || 0;
+  const conv = Number(e.conveyance) || 0;
+  const spec = Number(e.specialAllowance) || 0;
+  const other = Number(e.otherAllowance) || 0;
+  const gross = basic + hra + conv + spec + other;
+  const pfAmt = e.pfEnabled ? Math.round(basic * (Number(e.pfPercent) || 12) / 100) : 0;
+  const pt = Number(e.professionalTax) || 0;
+  const net = gross - pfAmt - pt;
   return (
     <div className="space-y-6">
       <Card className="p-6">
@@ -148,17 +180,17 @@ function SalaryInfoTab({ e }) {
           </span>
         </div>
         <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-3">
-          <Field label="Basic Salary"      value={formatINR(e.basicSalary)} />
-          <Field label="HRA"               value={formatINR(e.hra)} />
-          <Field label="Conveyance"        value={formatINR(e.conveyance)} />
-          <Field label="Special Allowance" value={formatINR(e.specialAllowance)} />
-          <Field label="Other Allowances"  value={formatINR(e.otherAllowance)} />
-          <Field label="PF"                value={e.pfEnabled ? `${e.pfPercent}% (${formatINR(pfAmt)})` : 'Not applicable'} />
-          <Field label="Professional Tax"  value={formatINR(e.professionalTax)} />
+          <Field label="Basic Salary"      value={formatINR(basic)} />
+          <Field label="HRA"               value={formatINR(hra)} />
+          <Field label="Conveyance"        value={formatINR(conv)} />
+          <Field label="Special Allowance" value={formatINR(spec)} />
+          <Field label="Other Allowances"  value={formatINR(other)} />
+          <Field label="PF"                value={e.pfEnabled ? `${e.pfPercent || 12}% (${formatINR(pfAmt)})` : 'Not applicable'} />
+          <Field label="Professional Tax"  value={formatINR(pt)} />
         </div>
         <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
           <SummaryTile label="Gross"      value={formatINR(gross)} />
-          <SummaryTile label="Deductions" value={formatINR(pfAmt + (e.professionalTax || 0))} tone="danger" />
+          <SummaryTile label="Deductions" value={formatINR(pfAmt + pt)} tone="danger" />
           <SummaryTile label="Net"        value={formatINR(net)} tone="success" />
         </div>
       </Card>
@@ -193,7 +225,7 @@ function SettingsTab() {
   return (
     <Card className="p-6">
       <h2 className="text-base font-semibold">Account Actions</h2>
-      <p className="mt-1 text-sm text-ink-muted">Admin-only controls for this employee account.</p>
+      <p className="mt-1 text-sm text-ink-muted">Use the Users &amp; Roles tab to perform reset / deactivate / delete actions.</p>
       <div className="mt-5 flex flex-wrap gap-3">
         <Button variant="outline" leftIcon={<Lock className="h-4 w-4" />}>Reset password</Button>
         <Button variant="outline" leftIcon={<Mail className="h-4 w-4" />}>Re-send credentials</Button>

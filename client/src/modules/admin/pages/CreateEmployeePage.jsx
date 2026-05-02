@@ -7,9 +7,10 @@ import {
 import { Card, Input, Button } from '../../../features/ui';
 import { useAuth } from '../../../features/auth/AuthContext';
 import {
-  DEPARTMENTS, ROLES, EMPLOYMENT_TYPES,
-  generateLoginId, employees,
+  DEPARTMENTS, ALL_ROLES, EMPLOYEE_ONLY_ROLE, EMPLOYMENT_TYPES,
+  previewLoginId,
 } from '../../../features/employees/employeeMocks';
+import usersService from '../../../services/usersService';
 
 function Section({ title, icon: Icon, children }) {
   return (
@@ -44,9 +45,17 @@ function Select({ label, value, onChange, options, required }) {
   );
 }
 
-export default function CreateEmployeePage() {
+export default function CreateEmployeePage({ mode = 'employee' }) {
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  const isUserMode = mode === 'user';
+  const roleOptions = isUserMode ? ALL_ROLES : EMPLOYEE_ONLY_ROLE;
+  const backPath = isUserMode ? '/admin/users' : '/admin/employees';
+  const pageTitle = isUserMode ? 'New User' : 'New Employee';
+  const pageSubtitle = isUserMode
+    ? 'Create a system user with any role. Login ID and temporary password are generated automatically.'
+    : 'Create an employee. Login ID and temporary password are generated automatically.';
 
   const [form, setForm] = useState({
     firstName: '', lastName: '', dob: '', gender: '',
@@ -60,33 +69,46 @@ export default function CreateEmployeePage() {
   });
   const [submitted, setSubmitted] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
   const set = (k) => (v) => setForm((f) => ({ ...f, [k]: v }));
   const setEv = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
-  // Live preview of the auto-generated Login ID (per spec: company prefix + initials + year + serial)
+  // Live preview — serial is filled in by the server, so we show "????".
   const loginIdPreview = useMemo(
-    () => generateLoginId({
+    () => previewLoginId({
       companyName: user?.companyName || 'EmPay',
       firstName: form.firstName,
       lastName: form.lastName,
       joinDate: form.joinDate,
-      serial: employees.length + 1,
     }),
     [user?.companyName, form.firstName, form.lastName, form.joinDate],
   );
 
-  const tempPasswordPreview = useMemo(() => {
-    return 'TMP-' + Math.random().toString(36).slice(2, 8).toUpperCase();
-  }, []);
-
   async function onSubmit(e) {
     e.preventDefault();
+    setError('');
     setSubmitting(true);
-    // Mock submit. Backend wiring lands when POST /api/v1/users is implemented.
-    await new Promise((r) => setTimeout(r, 600));
-    setSubmitted({ loginId: loginIdPreview, tempPassword: tempPasswordPreview, email: form.workEmail });
-    setSubmitting(false);
+    try {
+      // Coerce numeric fields from text inputs
+      const payload = {
+        ...form,
+        basicSalary: Number(form.basicSalary || 0),
+        hra: form.hra === '' ? null : Number(form.hra),
+        conveyance: form.conveyance === '' ? null : Number(form.conveyance),
+        specialAllowance: form.specialAllowance === '' ? null : Number(form.specialAllowance),
+        otherAllowance: form.otherAllowance === '' ? null : Number(form.otherAllowance),
+        pfPercent: form.pfPercent === '' ? null : Number(form.pfPercent),
+        professionalTax: form.professionalTax === '' ? null : Number(form.professionalTax),
+      };
+      const result = await usersService.create(payload);
+      setSubmitted(result);
+    } catch (err) {
+      const detail = err.data?.errors?.map((x) => `${x.path}: ${x.message}`).join('  •  ');
+      setError(detail || err.message || 'Failed to create user');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   if (submitted) {
@@ -96,19 +118,18 @@ export default function CreateEmployeePage() {
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-success-50 text-success-700">
             <ShieldCheck className="h-6 w-6" />
           </div>
-          <h2 className="mt-4 text-xl font-semibold">Employee created</h2>
+          <h2 className="mt-4 text-xl font-semibold">{isUserMode ? 'User created' : 'Employee created'}</h2>
           <p className="mt-1 text-sm text-ink-muted">
-            A welcome email with these credentials will be sent to <span className="font-medium text-ink">{submitted.email}</span>.
+            Share these credentials with <span className="font-medium text-ink">{submitted.user.email}</span>. They will be required to change the password on first login.
           </p>
           <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <CredentialTile label="Login ID" value={submitted.loginId} />
             <CredentialTile label="Temporary Password" value={submitted.tempPassword} />
           </div>
-          <p className="mt-4 text-xs text-ink-soft">
-            The employee will be required to change this password on first login.
-          </p>
           <div className="mt-6 flex justify-center gap-3">
-            <Button variant="outline" onClick={() => navigate('/admin/employees')}>Back to directory</Button>
+            <Button variant="outline" onClick={() => navigate(backPath)}>
+              {isUserMode ? 'Back to users' : 'Back to directory'}
+            </Button>
             <Button onClick={() => { setSubmitted(null); setForm((f) => ({ ...f, firstName: '', lastName: '', workEmail: '', personalEmail: '' })); }}>
               Create another
             </Button>
@@ -122,36 +143,32 @@ export default function CreateEmployeePage() {
     <div className="px-8 py-8">
       <button
         type="button"
-        onClick={() => navigate('/admin/employees')}
+        onClick={() => navigate(backPath)}
         className="inline-flex items-center gap-2 text-sm text-ink-muted hover:text-ink"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to directory
+        {isUserMode ? 'Back to users' : 'Back to directory'}
       </button>
 
-      <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">New Employee</h1>
-          <p className="mt-1 text-sm text-ink-muted">
-            Login ID and temporary password are generated automatically and emailed to the employee.
-          </p>
-        </div>
+      <div className="mt-3">
+        <h1 className="text-2xl font-semibold tracking-tight">{pageTitle}</h1>
+        <p className="mt-1 text-sm text-ink-muted">{pageSubtitle}</p>
       </div>
 
       <form onSubmit={onSubmit} className="mt-6 space-y-5">
-        {/* Auto-generated identifiers preview */}
+        {/* Login ID format preview */}
         <Card className="border-brand-300 bg-brand-50 p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <div className="text-xs uppercase tracking-wider text-brand-700">Auto-generated login ID</div>
+              <div className="text-xs uppercase tracking-wider text-brand-700">Login ID format</div>
               <div className="mt-1 font-mono text-lg font-semibold text-ink">{loginIdPreview}</div>
               <div className="mt-1 text-xs text-ink-muted">
-                Format: <span className="font-mono">[Company prefix][First+Last initials][Year][Serial]</span>
+                <span className="font-mono">[Company][First-2][Last-2][Year][Serial]</span> — final serial assigned on save.
               </div>
             </div>
             <div className="text-right">
               <div className="text-xs uppercase tracking-wider text-brand-700">Temporary password</div>
-              <div className="mt-1 font-mono text-lg font-semibold text-ink">{tempPasswordPreview}</div>
+              <div className="mt-1 font-mono text-lg font-semibold text-ink">Generated on save</div>
               <div className="mt-1 text-xs text-ink-muted">Forced reset on first login.</div>
             </div>
           </div>
@@ -161,7 +178,13 @@ export default function CreateEmployeePage() {
           <Input label="First Name"     value={form.firstName}     onChange={setEv('firstName')}     required />
           <Input label="Last Name"      value={form.lastName}      onChange={setEv('lastName')}      required />
           <Input label="Date of Birth"  type="date" value={form.dob} onChange={setEv('dob')} />
-          <Select label="Gender" value={form.gender} onChange={set('gender')} options={['Male', 'Female', 'Other', 'Prefer not to say']} />
+          <Select label="Gender" value={form.gender} onChange={set('gender')}
+            options={[
+              { value: 'MALE', label: 'Male' },
+              { value: 'FEMALE', label: 'Female' },
+              { value: 'OTHER', label: 'Other' },
+              { value: 'PREFER_NOT_TO_SAY', label: 'Prefer not to say' },
+            ]} />
           <Input label="Personal Phone" leftIcon={<Phone className="h-4 w-4" />} value={form.personalPhone} onChange={setEv('personalPhone')} />
           <Input label="Personal Email" type="email" leftIcon={<Mail className="h-4 w-4" />} value={form.personalEmail} onChange={setEv('personalEmail')} />
         </Section>
@@ -172,12 +195,23 @@ export default function CreateEmployeePage() {
           <Input label="Designation / Job Title" leftIcon={<Building2 className="h-4 w-4" />} value={form.position} onChange={setEv('position')} required />
           <Input label="Date of Joining" type="date" leftIcon={<Calendar className="h-4 w-4" />} value={form.joinDate} onChange={setEv('joinDate')} required />
           <Select label="Employment Type" value={form.employmentType} onChange={set('employmentType')} options={EMPLOYMENT_TYPES} required />
-          <Select label="Role" value={form.role} onChange={set('role')} options={ROLES} required />
+          {roleOptions.length > 1 ? (
+            <Select label="Role" value={form.role} onChange={set('role')} options={roleOptions} required />
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-ink">Role</label>
+              <div className="flex h-11 items-center gap-2 rounded-xl border border-border bg-surface-muted px-3.5 text-sm text-ink">
+                <ShieldCheck className="h-4 w-4 text-brand-500" />
+                <span>{roleOptions[0].label}</span>
+                <span className="ml-auto text-xs text-ink-muted">Locked from this tab</span>
+              </div>
+            </div>
+          )}
         </Section>
 
         <Section title="Salary Information" icon={IndianRupee}>
           <Input label="Basic Salary" type="number" placeholder="₹" value={form.basicSalary} onChange={setEv('basicSalary')} required />
-          <Input label="HRA" type="number" placeholder="40% non-metro / 50% metro" hint="Standard: 40% for non-metro, 50% for metro" value={form.hra} onChange={setEv('hra')} />
+          <Input label="HRA" type="number" hint="Standard: 40% non-metro, 50% metro" value={form.hra} onChange={setEv('hra')} />
           <Input label="Conveyance Allowance" type="number" value={form.conveyance} onChange={setEv('conveyance')} />
           <Input label="Special Allowance" type="number" value={form.specialAllowance} onChange={setEv('specialAllowance')} />
           <Input label="Other Allowances" type="number" value={form.otherAllowance} onChange={setEv('otherAllowance')} />
@@ -215,9 +249,13 @@ export default function CreateEmployeePage() {
           <Input label="IFSC Code"   value={form.bankIfsc}    onChange={setEv('bankIfsc')} />
         </Section>
 
+        {error && (
+          <div className="rounded-xl bg-danger-50 px-3 py-2 text-sm text-danger-700">{error}</div>
+        )}
+
         <div className="flex justify-end gap-3 pt-2">
-          <Button type="button" variant="outline" onClick={() => navigate('/admin/employees')}>Cancel</Button>
-          <Button type="submit" loading={submitting}>Create employee</Button>
+          <Button type="button" variant="outline" onClick={() => navigate(backPath)}>Cancel</Button>
+          <Button type="submit" loading={submitting}>{isUserMode ? 'Create user' : 'Create employee'}</Button>
         </div>
       </form>
     </div>
