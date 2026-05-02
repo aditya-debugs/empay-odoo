@@ -32,7 +32,6 @@ export default function AttendancePage() {
 
   const [regModalOpen, setRegModalOpen] = useState(false);
   const [regDate, setRegDate] = useState('');
-  const [regReason, setRegReason] = useState('');
   const [regSubmitting, setRegSubmitting] = useState(false);
 
   useEffect(() => {
@@ -208,7 +207,7 @@ export default function AttendancePage() {
               )}
             </tbody>
           </table>
-        </Card>
+        </div>
       </div>
 
       <Modal isOpen={regModalOpen} onClose={() => setRegModalOpen(false)} title="Request Regularization">
