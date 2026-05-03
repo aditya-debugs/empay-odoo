@@ -1,41 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, Plane } from 'lucide-react';
-import { Avatar, Button } from '../../../features/ui';
+import { Search } from 'lucide-react';
+import { Avatar, AttendanceStatusBadge } from '../../../features/ui';
 import { DEPARTMENTS, ALL_ROLES } from '../../../features/employees/employeeMocks';
 import api from '../../../services/api';
 
 const NON_ADMIN_ROLES = ALL_ROLES.filter((r) => r.value !== 'ADMIN');
-
-function StatusIndicator({ status }) {
-  if (status === 'ON_LEAVE') {
-    return (
-      <span title="On leave" className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-brand-700">
-        <Plane className="h-3 w-3" />
-      </span>
-    );
-  }
-  if (!status) {
-    // No attendance data yet — show a neutral indicator
-    return (
-      <span title="No attendance data" className="flex h-6 w-6 items-center justify-center rounded-full bg-surface-muted">
-        <span className="h-2 w-2 rounded-full bg-ink-soft/40" />
-      </span>
-    );
-  }
-  const dot =
-    status === 'PRESENT'  ? 'bg-success-500' :
-    status === 'HALF_DAY' ? 'bg-warning-500' :
-                            'bg-warning-500';
-  const label =
-    status === 'PRESENT'  ? 'Present' :
-    status === 'HALF_DAY' ? 'Half-day' : 'Absent';
-  return (
-    <span title={label} className="flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-border">
-      <span className={`h-2.5 w-2.5 rounded-full ${dot}`} />
-    </span>
-  );
-}
+const REFRESH_INTERVAL_MS = 60_000;
 
 export default function EmployeesList() {
   const navigate = useNavigate();
@@ -46,23 +17,29 @@ export default function EmployeesList() {
   const [department, setDepartment] = useState('');
   const [role, setRole] = useState('');
   const [error, setError] = useState('');
+  const timerRef = useRef(null);
+
+  const fetchEmployees = async () => {
+    try {
+      const params = new URLSearchParams({ search: query, role });
+      const res = await api.get(`/employees?${params.toString()}`);
+      setEmployeesList(res.employees || res || []);
+      setTotal(res.total || (res.employees ? res.employees.length : res.length) || 0);
+    } catch (err) {
+      setError(err.message || 'Failed to fetch employees');
+      console.error('Failed to fetch employees', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const params = new URLSearchParams({ search: query, role });
-        const res = await api.get(`/employees?${params.toString()}`);
-        setEmployeesList(res.employees || res || []);
-        setTotal(res.total || (res.employees ? res.employees.length : res.length) || 0);
-      } catch (err) {
-        setError(err.message || 'Failed to fetch employees');
-        console.error('Failed to fetch employees', err);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [query, role]); // Refresh when search or role changes
+    setLoading(true);
+    fetchEmployees();
+    clearInterval(timerRef.current);
+    timerRef.current = setInterval(fetchEmployees, REFRESH_INTERVAL_MS);
+    return () => clearInterval(timerRef.current);
+  }, [query, role]);
 
   const filtered = employeesList.filter((e) => {
     if (department && e.department !== department) return false;
@@ -131,7 +108,7 @@ export default function EmployeesList() {
             className="group relative flex flex-col items-center rounded-2xl border border-border bg-white p-5 text-center transition-all hover:border-brand-300 hover:shadow-md"
           >
             <div className="absolute right-3 top-3">
-              <StatusIndicator status={e.attendanceStatus} />
+              <AttendanceStatusBadge status={e.attendanceStatus} />
             </div>
             <Avatar name={`${e.firstName} ${e.lastName}`} size="lg" className="h-16 w-16 text-base" />
             <div className="mt-3 text-sm font-semibold text-ink">{e.firstName} {e.lastName}</div>

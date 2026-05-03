@@ -3,8 +3,6 @@ import { Card, Input } from '../../../features/ui';
 import { useAuth } from '../../../features/auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../../../services/api';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
 const TABS = [
   { id: 'payroll', label: 'Payroll Summary' },
@@ -20,7 +18,7 @@ export default function Reports() {
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState('payroll');
-  const [month, setMonth] = useState(() => new Date().toISOString().substring(0, 10));
+  const [month, setMonth] = useState(() => new Date().toISOString().substring(0, 7));
   const [year, setYear] = useState(() => new Date().getFullYear().toString());
   const [employeeId, setEmployeeId] = useState('');
   
@@ -84,13 +82,15 @@ export default function Reports() {
       csvContent += "Employee,Basic Salary,PF (12%),Month\n";
       data.forEach(r => {
         const name = `${r.employee?.firstName} ${r.employee?.lastName}`;
-        csvContent += `"${name}",${r.basicSalary},${r.pfDeduction},${r.month}\n`;
+        const mStr = r.year ? `${r.year}-${String(r.month).padStart(2,'0')}` : r.month;
+        csvContent += `"${name}",${r.basicSalary},${r.pfDeduction},${mStr}\n`;
       });
     } else if (activeTab === 'prof-tax') {
       csvContent += "Employee,Gross Salary,PT Amount,Month\n";
       data.forEach(r => {
         const name = `${r.employee?.firstName} ${r.employee?.lastName}`;
-        csvContent += `"${name}",${r.grossSalary},${r.professionalTax},${r.month}\n`;
+        const mStr = r.year ? `${r.year}-${String(r.month).padStart(2,'0')}` : r.month;
+        csvContent += `"${name}",${r.grossSalary},${r.professionalTax},${mStr}\n`;
       });
     } else if (activeTab === 'ytd') {
       csvContent += "Employee," + MONTHS.join(',') + ",Annual Total\n";
@@ -113,65 +113,40 @@ export default function Reports() {
 
   const exportPDF = () => {
     if (!data) return;
-    const doc = new jsPDF('l', 'mm', 'a4'); // Landscape for reports
     const title = TABS.find(t => t.id === activeTab)?.label || 'Report';
     const period = activeTab === 'ytd' ? `Year: ${year}` : `Month: ${month}`;
+    const fmtPDF = (val) => '₹' + Number(val || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 
-    doc.setFontSize(20);
-    doc.text('EmPay — ' + title, 14, 15);
-    doc.setFontSize(10);
-    doc.text(period, 14, 22);
-
-    let head = [];
-    let body = [];
-
-    const fmtPDF = (val) => 'Rs. ' + Number(val).toLocaleString('en-IN', { maximumFractionDigits: 0 });
-
+    let tableHtml = '';
     if (activeTab === 'payroll') {
-      head = [['Employee', 'Basic', 'Gross', 'Deductions', 'Net', 'Status']];
-      body = data.map(r => [
-        `${r.employee?.firstName} ${r.employee?.lastName}`,
-        fmtPDF(r.basicSalary),
-        fmtPDF(r.grossSalary),
-        fmtPDF(r.totalDeductions),
-        fmtPDF(r.netSalary),
-        r.status
-      ]);
+      tableHtml = `<table><thead><tr><th>Employee</th><th>Basic</th><th>Gross</th><th>Deductions</th><th>Net</th><th>Status</th></tr></thead><tbody>
+        ${data.map(r => `<tr><td>${r.employee?.firstName} ${r.employee?.lastName}</td><td>${fmtPDF(r.basicSalary)}</td><td>${fmtPDF(r.grossSalary)}</td><td>${fmtPDF(r.totalDeductions)}</td><td>${fmtPDF(r.netSalary)}</td><td>${r.status}</td></tr>`).join('')}
+        </tbody></table>`;
     } else if (activeTab === 'pf') {
-      head = [['Employee', 'Gross Salary', 'PF Deduction', 'Status']];
-      body = data.map(r => [
-        `${r.employee?.firstName} ${r.employee?.lastName}`,
-        fmtPDF(r.grossSalary),
-        fmtPDF(r.pfDeduction),
-        r.status
-      ]);
+      tableHtml = `<table><thead><tr><th>Employee</th><th>Basic Salary</th><th>PF Deduction</th><th>Month</th></tr></thead><tbody>
+        ${data.map(r => `<tr><td>${r.employee?.firstName} ${r.employee?.lastName}</td><td>${fmtPDF(r.basicSalary)}</td><td>${fmtPDF(r.pfDeduction)}</td><td>${r.year}-${String(r.month).padStart(2,'0')}</td></tr>`).join('')}
+        </tbody></table>`;
     } else if (activeTab === 'prof-tax') {
-      head = [['Employee', 'Gross Salary', 'Prof. Tax', 'Status']];
-      body = data.map(r => [
-        `${r.employee?.firstName} ${r.employee?.lastName}`,
-        fmtPDF(r.grossSalary),
-        fmtPDF(r.professionalTax),
-        r.status
-      ]);
+      tableHtml = `<table><thead><tr><th>Employee</th><th>Gross Salary</th><th>Prof. Tax</th><th>Month</th></tr></thead><tbody>
+        ${data.map(r => `<tr><td>${r.employee?.firstName} ${r.employee?.lastName}</td><td>${fmtPDF(r.grossSalary)}</td><td>${fmtPDF(r.professionalTax)}</td><td>${r.year}-${String(r.month).padStart(2,'0')}</td></tr>`).join('')}
+        </tbody></table>`;
     } else if (activeTab === 'ytd') {
-      head = [['Employee', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Total']];
-      body = groupedYtd.map(row => [
-        row.employeeName,
-        ...[1,2,3,4,5,6,7,8,9,10,11,12].map(m => row.months[m] ? fmtPDF(row.months[m]) : '-'),
-        fmtPDF(row.annualTotal)
-      ]);
+      const cols = [1,2,3,4,5,6,7,8,9,10,11,12];
+      tableHtml = `<table><thead><tr><th>Employee</th>${MONTHS.map(m=>`<th>${m}</th>`).join('')}<th>Total</th></tr></thead><tbody>
+        ${groupedYtd.map(row => `<tr><td>${row.employeeName}</td>${cols.map(m=>`<td>${row.months[m] ? fmtPDF(row.months[m]) : '-'}</td>`).join('')}<td>${fmtPDF(row.annualTotal)}</td></tr>`).join('')}
+        </tbody></table>`;
     }
 
-    autoTable(doc, {
-      startY: 30,
-      head: head,
-      body: body,
-      theme: 'grid',
-      headStyles: { fillColor: [15, 76, 58], fontSize: 8 },
-      bodyStyles: { fontSize: 8 }
-    });
-
-    doc.save(`${activeTab}_report_${activeTab === 'ytd' ? year : month}.pdf`);
+    const win = window.open('', '_blank');
+    win.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
+      <style>body{font-family:sans-serif;padding:20px}h1{font-size:20px}p{font-size:12px;color:#555}
+      table{width:100%;border-collapse:collapse;margin-top:16px;font-size:11px}
+      th{background:#0f4c3a;color:#fff;padding:6px 8px;text-align:left}
+      td{padding:5px 8px;border-bottom:1px solid #eee}tr:nth-child(even){background:#f9f9f9}
+      @media print{button{display:none}}</style></head>
+      <body><h1>EmPay — ${title}</h1><p>${period}</p>${tableHtml}
+      <script>window.onload=()=>window.print();<\/script></body></html>`);
+    win.document.close();
   };
 
   const getGroupedYtd = () => {
@@ -186,9 +161,10 @@ export default function Reports() {
           annualTotal: 0
         };
       }
-      const monthNum = parseInt(row.month.split('-')[1], 10);
-      grouped[empId].months[monthNum] = row.netSalary;
-      grouped[empId].annualTotal += row.netSalary;
+      // row.month is an integer (1-12) from prisma.payslip
+      const monthNum = typeof row.month === 'string' ? parseInt(row.month.split('-')[1] || row.month, 10) : row.month;
+      grouped[empId].months[monthNum] = Number(row.netSalary || 0);
+      grouped[empId].annualTotal += Number(row.netSalary || 0);
     });
     return Object.values(grouped);
   };
@@ -339,7 +315,7 @@ export default function Reports() {
                       <td className="px-6 py-3 text-sm font-medium text-ink">{r.employee?.firstName} {r.employee?.lastName}</td>
                       <td className="px-6 py-3 text-sm text-ink-muted">{formatINR(r.basicSalary)}</td>
                       <td className="px-6 py-3 text-sm text-red-600 font-medium">{formatINR(r.pfDeduction)}</td>
-                      <td className="px-6 py-3 text-sm text-ink-muted">{r.month}</td>
+                      <td className="px-6 py-3 text-sm text-ink-muted">{r.year ? `${r.year}-${String(r.month).padStart(2,'0')}` : r.month}</td>
                     </tr>
                   ))}
                   {data.length === 0 && <tr><td colSpan="4" className="p-8 text-center text-ink-muted">No records found.</td></tr>}
@@ -372,7 +348,7 @@ export default function Reports() {
                       <td className="px-6 py-3 text-sm font-medium text-ink">{r.employee?.firstName} {r.employee?.lastName}</td>
                       <td className="px-6 py-3 text-sm text-ink-muted">{formatINR(r.grossSalary)}</td>
                       <td className="px-6 py-3 text-sm text-red-600 font-medium">{formatINR(r.professionalTax)}</td>
-                      <td className="px-6 py-3 text-sm text-ink-muted">{r.month}</td>
+                      <td className="px-6 py-3 text-sm text-ink-muted">{r.year ? `${r.year}-${String(r.month).padStart(2,'0')}` : r.month}</td>
                     </tr>
                   ))}
                   {data.length === 0 && <tr><td colSpan="4" className="p-8 text-center text-ink-muted">No records found.</td></tr>}

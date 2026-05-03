@@ -53,10 +53,19 @@ async function getOwnPayslip(userId, payslipId) {
 // Admin / Payroll Officer
 // ─────────────────────────────────────────────────────────────
 
-async function listAll({ year, month } = {}) {
+async function listAll({ year, month, employeeId, search } = {}) {
   const where = {};
-  if (year)  where.year  = Number(year);
-  if (month) where.month = Number(month);
+  if (year)       where.year       = Number(year);
+  if (month)      where.month      = Number(month);
+  if (employeeId) where.employeeId = employeeId;
+  if (search) {
+    where.employee = {
+      OR: [
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName:  { contains: search, mode: 'insensitive' } },
+      ],
+    };
+  }
 
   const payslips = await prisma.payslip.findMany({
     where,

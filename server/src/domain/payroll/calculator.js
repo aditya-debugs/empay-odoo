@@ -56,10 +56,11 @@ async function processPayrollForEmployee(employeeId, month) {
   }
 
   // 5. Check if already processed (Locked)
-  const existingPayroll = await prisma.payroll.findFirst({
-    where: { employeeId, month }
+  const existingPayroll = await prisma.payslip.findFirst({
+    where: { employeeId, month: monthNum, year },
+    orderBy: { version: 'desc' }
   });
-  if (existingPayroll && existingPayroll.status === 'LOCKED') {
+  if (existingPayroll && (existingPayroll.status === 'LOCKED' || existingPayroll.status === 'GENERATED')) {
     throw { code: 'ALREADY_LOCKED', employeeId };
   }
 
@@ -98,25 +99,7 @@ async function processPayrollForEmployee(employeeId, month) {
   const totalDeductions = pfDeduction + professionalTax + tdsDeduction;
   const netSalary = Math.max(0, grossSalary - totalDeductions);
 
-  // 7. Prisma upsert payroll record
-  const payroll = await prisma.payroll.upsert({
-    where: { employeeId_month: { employeeId, month } },
-    update: {
-      basicSalary, workingDays, presentDays, lopDays,
-      perDaySalary, lopDeduction, overtimeBonus, grossSalary,
-      pfDeduction, tdsDeduction, professionalTax,
-      totalDeductions, netSalary, status: 'PROCESSED', cappedAtZero: netSalary === 0
-    },
-    create: {
-      employeeId, month,
-      basicSalary, workingDays, presentDays, lopDays,
-      perDaySalary, lopDeduction, overtimeBonus, grossSalary,
-      pfDeduction, tdsDeduction, professionalTax,
-      totalDeductions, netSalary, status: 'PROCESSED', cappedAtZero: netSalary === 0
-    }
-  });
-
-  // 8. Prisma create/update payslip
+  // 7. Build earnings/deductions breakdown
   const earnings = [
     { label: 'Basic Salary', amount: basicSalary },
     { label: 'House Rent Allowance', amount: hra },
@@ -164,7 +147,7 @@ async function processPayrollForEmployee(employeeId, month) {
     }
   });
 
-  return { payroll, payslip, breakdown };
+  return { payslip, breakdown };
 }
 
 async function processPayrollForMonth(month) {
@@ -200,7 +183,17 @@ async function previewPayrollForMonth(month) {
       preview.push({
         employeeId: emp.id,
         employeeName: `${emp.firstName} ${emp.lastName}`,
-        ...result.payroll
+        basicSalary: result.payslip.basicSalary,
+        grossSalary: result.payslip.grossSalary,
+        totalDeductions: result.payslip.totalDeductions,
+        netSalary: result.payslip.netSalary,
+        workingDays: result.payslip.workingDays,
+        paidDays: result.payslip.paidDays,
+        presentDays: result.payslip.paidDays,
+        lopDays: result.payslip.lopDays,
+        status: result.payslip.status,
+        cappedAtZero: Number(result.payslip.netSalary) === 0,
+        payslipId: result.payslip.id
       });
     } catch (error) {
       preview.push({ 

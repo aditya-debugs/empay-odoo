@@ -159,30 +159,87 @@ async function getAttendanceHistory(userId, limit = 30, offset = 0) {
 }
 
 async function listAllAttendance({ date, search } = {}) {
-  const targetDate = date ? new Date(date) : new Date();
-  targetDate.setHours(0, 0, 0, 0);
+  // Always interpret the date as a local calendar date ("YYYY-MM-DD") to avoid UTC offset issues.
+  const dateStr = date || new Date().toLocaleDateString('en-CA'); // "YYYY-MM-DD"
+  const dayStart = new Date(`${dateStr}T00:00:00.000Z`);
+  const dayEnd   = new Date(`${dateStr}T23:59:59.999Z`);
 
-  const where = {
-    date: targetDate,
-    employee: search
-      ? {
-          user: { name: { contains: search, mode: 'insensitive' } },
-        }
-      : undefined,
-  };
+  // Fetch all active employees (optionally filtered by search)
+  const employeeWhere = search
+    ? { user: { name: { contains: search, mode: 'insensitive' } } }
+    : {};
 
-  const records = await prisma.attendance.findMany({
-    where,
-    include: {
-      employee: {
-        include: { user: { select: { name: true, email: true } } },
+  // CASUAL_LEAVE is treated as absent (unplanned), all other approved leave types → ON_LEAVE
+  const ON_LEAVE_TYPES = ['PAID_LEAVE', 'UNPAID_LEAVE', 'SICK_LEAVE', 'MATERNITY_LEAVE', 'PATERNITY_LEAVE'];
+
+  const [allEmployees, attendanceRecords, leaveRecords] = await Promise.all([
+    prisma.employee.findMany({
+      where: employeeWhere,
+      include: { user: { select: { id: true, name: true, email: true, loginId: true } } },
+      orderBy: { firstName: 'asc' },
+    }),
+    prisma.attendance.findMany({
+      where: {
+        date: { gte: dayStart, lte: dayEnd },
+        ...(search ? { employee: { user: { name: { contains: search, mode: 'insensitive' } } } } : {}),
       },
-      // 'logs' relation caused runtime errors for some generated clients —
-      // avoid including the nested logs here to keep the list API stable.
-      regularization: true,
-    },
-    orderBy: { checkIn: 'desc' },
+      include: {
+        employee: { include: { user: { select: { name: true, email: true } } } },
+        regularization: true,
+      },
+    }),
+    prisma.leave.findMany({
+      where: {
+        status: 'APPROVED',
+        startDate: { lte: dayEnd },
+        endDate:   { gte: dayStart },
+      },
+      select: { employeeId: true, type: true },
+    }),
+  ]);
+
+  const attendanceMap = {};
+  for (const a of attendanceRecords) attendanceMap[a.employeeId] = a;
+
+  // Build per-employee leave status: ON_LEAVE for formal leaves, ABSENT for casual
+  const leaveStatusMap = {};
+  for (const l of leaveRecords) {
+    leaveStatusMap[l.employeeId] = ON_LEAVE_TYPES.includes(l.type) ? 'ON_LEAVE' : 'ABSENT';
+  }
+
+  // Build unified records for all employees
+  const records = allEmployees.map(emp => {
+    const leaveStatus = leaveStatusMap[emp.id]; // 'ON_LEAVE' | 'ABSENT' | undefined
+
+    if (attendanceMap[emp.id]) {
+      // Has an attendance record — override status if on formal leave
+      const rec = attendanceMap[emp.id];
+      return {
+        ...rec,
+        status: leaveStatus === 'ON_LEAVE' ? 'ON_LEAVE' : rec.status,
+        leaveType: leaveRecords.find(l => l.employeeId === emp.id)?.type || null,
+      };
+    }
+
+    // No attendance record for this date
+    const status = leaveStatus || 'ABSENT';
+    return {
+      id: `virtual-${emp.id}-${dateStr}`,
+      employeeId: emp.id,
+      date: dayStart,
+      status,
+      checkIn: null,
+      checkOut: null,
+      hoursWorked: 0,
+      employee: { ...emp, department: emp.department },
+      regularization: null,
+      leaveType: leaveRecords.find(l => l.employeeId === emp.id)?.type || null,
+    };
   });
+
+  // Sort: present first, then on_leave, then absent
+  const order = { PRESENT: 0, REGULARIZED: 1, ON_LEAVE: 2, ABSENT: 3 };
+  records.sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9));
 
   return { records };
 }

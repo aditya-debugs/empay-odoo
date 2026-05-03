@@ -8,3 +8,4 @@ export { Tabs } from './Tabs';
 export { Select } from './Select';
 export { DateInput } from './DateInput';
 export { cn } from './cn';
+export { AttendanceStatusBadge } from './AttendanceStatusBadge';

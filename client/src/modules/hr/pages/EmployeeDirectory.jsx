@@ -1,18 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Plus } from 'lucide-react';
-import { Avatar, Button } from '../../../features/ui';
+import { Avatar, Button, AttendanceStatusBadge } from '../../../features/ui';
 import { DEPARTMENTS, ALL_ROLES } from '../../../features/employees/employeeMocks';
 import hrService from '../hrService';
 
 const NON_ADMIN_ROLES = ALL_ROLES.filter((r) => r.value !== 'ADMIN');
-
-function StatusIndicator({ status }) {
-  const dotColor = status === 'ABSENT' ? 'bg-border-strong' : 'bg-orange-400';
-  return (
-    <div className={`h-2.5 w-2.5 rounded-full ${dotColor} ring-2 ring-white`} />
-  );
-}
+const REFRESH_INTERVAL_MS = 60_000;
 
 export default function EmployeeDirectory() {
   const navigate = useNavigate();
@@ -23,13 +17,9 @@ export default function EmployeeDirectory() {
   const [department, setDepartment] = useState('');
   const [role, setRole] = useState('');
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    fetchEmployees();
-  }, [query, role]);
+  const timerRef = useRef(null);
 
   async function fetchEmployees() {
-    setLoading(true);
     try {
       const { employees, total: t } = await hrService.listEmployees({ search: query, role });
       setEmployeesList(employees || []);
@@ -40,6 +30,14 @@ export default function EmployeeDirectory() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    setLoading(true);
+    fetchEmployees();
+    clearInterval(timerRef.current);
+    timerRef.current = setInterval(fetchEmployees, REFRESH_INTERVAL_MS);
+    return () => clearInterval(timerRef.current);
+  }, [query, role]);
 
   const filtered = employeesList.filter((e) => {
     if (department && e.department !== department) return false;
@@ -116,7 +114,7 @@ export default function EmployeeDirectory() {
             className="group relative flex flex-col items-center rounded-2xl border border-border bg-white p-8 text-center shadow-sm transition-all hover:shadow-md hover:ring-2 hover:ring-green-500/20"
           >
             <div className="absolute right-4 top-4">
-              <StatusIndicator status={e.attendanceStatus} />
+              <AttendanceStatusBadge status={e.attendanceStatus} />
             </div>
             
             <Avatar name={`${e.firstName} ${e.lastName}`} className="h-20 w-20 text-xl font-bold bg-green-50 text-green-700 ring-4 ring-gray-50" />

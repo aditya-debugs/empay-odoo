@@ -4,12 +4,9 @@ import {
   ChevronLeft, 
   ChevronRight, 
   CheckCircle2, 
-  XCircle,
-  AlertCircle,
-  MessageSquare,
   Clock
 } from 'lucide-react';
-import { Card, Button, Input, Avatar, Tabs, DateInput } from '../../../features/ui';
+import { Card, Button, Input, Avatar, Tabs, DateInput, AttendanceStatusBadge } from '../../../features/ui';
 import hrService from '../hrService';
 
 export default function HRAttendanceView() {
@@ -160,13 +157,7 @@ export default function HRAttendanceView() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wide border ${
-                          record.status === 'PRESENT' ? 'bg-success-50 text-success-700 border-success-500/20' :
-                          record.status === 'REGULARIZED' ? 'bg-brand-50 text-brand-700 border-brand-500/20' :
-                          'bg-danger-50 text-danger-700 border-danger-500/20'
-                        }`}>
-                          {record.status}
-                        </span>
+                        <AttendanceStatusBadge status={record.status} mode="badge" />
                       </td>
 
                       <td className="px-6 py-4 text-[13px] font-bold text-ink">

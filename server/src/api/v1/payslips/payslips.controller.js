@@ -26,7 +26,8 @@ exports.getPayslipDetail = async (req, res, next) => {
 // Admin/Payroll — list all payslips with optional filters
 exports.listAll = async (req, res, next) => {
   try {
-    const payslips = await service.listAll({ year: req.query.year, month: req.query.month });
+    const { year, month, employeeId, search } = req.query;
+    const payslips = await service.listAll({ year, month, employeeId, search });
     res.json({ payslips });
   } catch (e) { next(e); }
 };

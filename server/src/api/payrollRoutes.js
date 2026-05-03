@@ -183,23 +183,13 @@ router.patch('/payslips/:id/cancel', requireRole('PAYROLL_OFFICER', 'ADMIN'), as
     });
     if (!payslip) return res.status(404).json({ error: 'Payslip not found' });
 
-    const monthStr = `${payslip.year}-${String(payslip.month).padStart(2, '0')}`;
-    const payroll = await prisma.payroll.findUnique({
-      where: { employeeId_month: { employeeId: payslip.employeeId, month: monthStr } }
-    });
-
-    if (payroll?.status === 'LOCKED') {
+    if (payslip.status === 'GENERATED') {
       return res.status(423).json({ error: 'Cannot cancel a validated payslip' });
     }
 
     if (payslip.status === 'CANCELLED') {
       return res.status(400).json({ error: 'Payslip is already cancelled' });
     }
-
-    await prisma.payroll.update({
-      where: { id: payroll.id },
-      data: { status: 'CANCELLED' }
-    });
 
     const updated = await prisma.payslip.update({
       where: { id: req.params.id },
@@ -217,25 +207,15 @@ router.post('/payslips/new', requireRole('PAYROLL_OFFICER', 'ADMIN'), async (req
   if (!employeeId || !month) return res.status(400).json({ error: 'employeeId and month required' });
 
   try {
-    const existing = await prisma.payroll.findUnique({
-      where: { employeeId_month: { employeeId, month } }
+    const [year, mInt] = month.split('-').map(Number);
+
+    const existing = await prisma.payslip.findFirst({
+      where: { employeeId, month: mInt, year }
     });
     if (existing) return res.status(409).json({ error: `A payslip already exists for ${month}` });
 
     const employee = await prisma.employee.findUnique({ where: { id: employeeId } });
     if (!employee) return res.status(404).json({ error: 'Employee not found' });
-
-    const [year, mInt] = month.split('-').map(Number);
-
-    const payroll = await prisma.payroll.create({
-      data: {
-        employeeId, month,
-        basicSalary: Number(employee.basicSalary || 0),
-        workingDays: 0, presentDays: 0, lopDays: 0, perDaySalary: 0, lopDeduction: 0,
-        overtimeBonus: 0, grossSalary: 0, pfDeduction: 0, esicDeduction: 0, tdsDeduction: 0,
-        professionalTax: 0, totalDeductions: 0, netSalary: 0, status: 'PENDING'
-      }
-    });
 
     const payslip = await prisma.payslip.create({
       data: {

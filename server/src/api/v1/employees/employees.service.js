@@ -22,20 +22,73 @@ async function listEmployees({ search = '', role, limit = 50, offset = 0 } = {})
 
   const total = await prisma.employee.count({ where });
 
-  // Flatten for frontend
-  const flat = employees.map(e => ({
-    id: e.user.id,
-    employeeId: e.id,
-    firstName: e.firstName,
-    lastName: e.lastName,
-    name: e.user.name,
-    email: e.user.email,
-    loginId: e.user.loginId,
-    role: e.user.role,
-    position: e.position,
-    department: e.department,
-    attendanceStatus: e.status // per mockup
-  }));
+  const employeeIds = employees.map(e => e.id);
+
+  // Build today's UTC date range to avoid timezone mismatch.
+  // The date string "YYYY-MM-DD" is always interpreted as the calendar date regardless of server TZ.
+  const todayStr = new Date().toLocaleDateString('en-CA'); // "YYYY-MM-DD" in local time
+  const todayStart = new Date(`${todayStr}T00:00:00.000Z`);
+  const todayEnd   = new Date(`${todayStr}T23:59:59.999Z`);
+
+  // CASUAL_LEAVE → ABSENT (unplanned absence), all other approved leaves → ON_LEAVE
+  const ON_LEAVE_TYPES = ['PAID_LEAVE', 'UNPAID_LEAVE', 'SICK_LEAVE', 'MATERNITY_LEAVE', 'PATERNITY_LEAVE'];
+
+  const [todayAttendance, todayLeaves] = await Promise.all([
+    prisma.attendance.findMany({
+      where: {
+        employeeId: { in: employeeIds },
+        date: { gte: todayStart, lte: todayEnd },
+      },
+      select: { employeeId: true, status: true, checkIn: true }
+    }),
+    prisma.leave.findMany({
+      where: {
+        employeeId: { in: employeeIds },
+        status: 'APPROVED',
+        startDate: { lte: todayEnd },
+        endDate:   { gte: todayStart },
+      },
+      select: { employeeId: true, type: true }
+    })
+  ]);
+
+  const attendanceMap = {};
+  for (const a of todayAttendance) attendanceMap[a.employeeId] = a;
+
+  // Map each employee to their effective leave status
+  const leaveStatusMap = {};
+  for (const l of todayLeaves) {
+    leaveStatusMap[l.employeeId] = ON_LEAVE_TYPES.includes(l.type) ? 'ON_LEAVE' : 'ABSENT';
+  }
+
+  // Flatten for frontend with real attendance status
+  const flat = employees.map(e => {
+    const leaveStatus = leaveStatusMap[e.id]; // 'ON_LEAVE' | 'ABSENT' | undefined
+    let attendanceStatus;
+    if (leaveStatus === 'ON_LEAVE') {
+      attendanceStatus = 'ON_LEAVE';
+    } else if (attendanceMap[e.id]) {
+      attendanceStatus = attendanceMap[e.id].status; // PRESENT, REGULARIZED, ABSENT
+    } else {
+      // Casual leave or no record → ABSENT
+      attendanceStatus = leaveStatus || 'ABSENT';
+    }
+
+    return {
+      id: e.user.id,
+      employeeId: e.id,
+      firstName: e.firstName,
+      lastName: e.lastName,
+      name: e.user.name,
+      email: e.user.email,
+      loginId: e.user.loginId,
+      role: e.user.role,
+      position: e.position,
+      department: e.department,
+      employmentStatus: e.status, // ACTIVE / INACTIVE
+      attendanceStatus,
+    };
+  });
 
   return { employees: flat, total, limit, offset };
 }

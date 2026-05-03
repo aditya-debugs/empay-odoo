@@ -159,47 +159,64 @@ async function getAdminDashboard() {
 }
 
 async function getPayrollDashboard() {
-  const thisMonth = new Date().getMonth() + 1;
-  const thisYear = new Date().getFullYear();
+  const now = new Date();
+  const thisMonth = now.getMonth() + 1;
+  const thisYear = now.getFullYear();
 
-  const [totalProcessed, totalPending, openDisputesCount, netPayoutAgg, monthlyRaw, recentDisputes] = await Promise.all([
+  // Last 6 months
+  const last6 = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+    return { monthStr: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, month: d.getMonth() + 1, year: d.getFullYear() };
+  });
+
+  const [totalProcessed, totalPending, openDisputesCount, netPayoutAgg, employeesWithoutBank] = await Promise.all([
     prisma.payslip.count({ where: { status: 'GENERATED' } }),
-    prisma.payslip.count({ where: { status: 'DRAFT' } }),
+    prisma.payslip.count({ where: { status: 'COMPUTED' } }),
     prisma.payslipDispute.count({ where: { status: 'OPEN' } }),
     prisma.payslip.aggregate({ _sum: { netSalary: true }, where: { status: 'GENERATED' } }),
-    // Group by year+month for last 6 months trend
-    prisma.payslip.groupBy({
-      by: ['year', 'month', 'status'],
-      _count: { _all: true },
-      orderBy: [{ year: 'desc' }, { month: 'desc' }],
-      take: 12,
-    }),
-    prisma.payslipDispute.findMany({
-      where: { status: 'OPEN' },
-      include: { payslip: { include: { employee: true } } },
-      orderBy: { createdAt: 'desc' },
-      take: 5,
-    }),
+    prisma.employee.count({ where: { bankAccountNo: null } }),
   ]);
 
-  // Build monthly trend: merge processed/pending counts per month
-  const trendMap = {};
-  for (const row of monthlyRaw) {
-    const key = `${row.year}-${String(row.month).padStart(2, '0')}`;
-    if (!trendMap[key]) trendMap[key] = { month: key, Processed: 0, Pending: 0 };
-    if (row.status === 'GENERATED') trendMap[key].Processed += row._count._all;
-    else trendMap[key].Pending += row._count._all;
-  }
-  const monthlyTrend = Object.values(trendMap).sort((a, b) => a.month.localeCompare(b.month));
+  // Employer cost per month (sum of grossSalary from generated/computed payslips)
+  const employerCostData = await Promise.all(last6.map(async ({ monthStr, month, year }) => {
+    const r = await prisma.payslip.aggregate({
+      _sum: { grossSalary: true },
+      where: { month, year, status: { in: ['GENERATED', 'COMPUTED'] } }
+    });
+    return { month: monthStr, amount: Number(r._sum.grossSalary || 0) };
+  }));
+
+  // Employee count per month
+  const employeeCountData = await Promise.all(last6.map(async ({ monthStr, month, year }) => {
+    const endOfMonth = new Date(year, month, 0);
+    const count = await prisma.employee.count({
+      where: { joinDate: { lte: endOfMonth }, status: 'ACTIVE' }
+    });
+    return { month: monthStr, count };
+  }));
+
+  // Payruns (last 3 months with payslip counts and dispute counts)
+  const payruns = (await Promise.all(last6.slice(-3).reverse().map(async ({ monthStr, month, year }) => {
+    const payslipCount = await prisma.payslip.count({ where: { month, year } });
+    if (payslipCount === 0) return null;
+    const disputeCount = await prisma.payslipDispute.count({ where: { payslip: { month, year } } });
+    return { month: monthStr, payslipCount, disputeCount };
+  }))).filter(Boolean);
 
   return {
+    warnings: { employeesWithoutBank, employeesWithoutManager: 0 },
+    payruns,
+    employerCostData,
+    employeeCountData,
     totalProcessed,
     totalPending,
     totalNetPayout: Number(netPayoutAgg._sum.netSalary || 0),
-    currentRun: await prisma.payslip.count({ where: { month: thisMonth, year: thisYear, status: 'GENERATED' } }),
     openDisputesCount,
-    monthlyTrend,
-    recentDisputes,
+    thisMonthStatus: (await prisma.payslip.findFirst({
+      where: { month: thisMonth, year: thisYear },
+      select: { status: true },
+      orderBy: { version: 'desc' }
+    }))?.status || null,
   };
 }
 

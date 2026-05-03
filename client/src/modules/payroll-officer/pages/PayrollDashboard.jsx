@@ -19,20 +19,6 @@ export default function PayrollDashboard() {
   const fmtMonth = m => new Date(m + '-01').toLocaleString('default', { month: 'short', year: 'numeric' });
   const fmtCompact = n => '₹' + (n >= 1000 ? (n / 1000).toFixed(0) + 'K' : n);
 
-  const fetchDashboard = () => {
-    setLoading(true);
-    setError(null);
-    api.get('/dashboard')
-      .then(res => {
-        setData(res);
-      })
-      .catch(err => {
-        console.error('Dashboard fetch error:', err);
-        setError(err.message || 'Failed to load dashboard.');
-      })
-      .finally(() => setLoading(false));
-  };
-
   useEffect(() => {
     if (user?.role === 'EMPLOYEE') {
       navigate('/employee/payslips', { replace: true });

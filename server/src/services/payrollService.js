@@ -130,33 +130,69 @@ const resolveDispute = async (id, action, note, user) => {
 const getReport = async (type, filters, user) => {
   assertRole(user, ['ADMIN', 'PAYROLL_OFFICER']);
   const prisma = require('../config/prisma');
-  
-  const empSelect = { employee: { select: { id: true, firstName: true, lastName: true } } };
-  
+
+  const empInclude = { employee: { select: { id: true, firstName: true, lastName: true } } };
+
+  const buildMonthWhere = (monthStr) => {
+    if (!monthStr) return {};
+    const [yearStr, mStr] = monthStr.split('-');
+    return { month: parseInt(mStr, 10), year: parseInt(yearStr, 10) };
+  };
+
+  const dedupeLatest = (rows) => {
+    const map = {};
+    for (const r of rows) {
+      const key = `${r.employeeId}-${r.year}-${r.month}`;
+      if (!map[key] || r.version > map[key].version) map[key] = r;
+    }
+    return Object.values(map);
+  };
+
   if (type === 'payroll') {
-    return await prisma.payroll.findMany({ 
-      where: filters.month ? { month: filters.month } : {},
-      include: empSelect 
+    const rows = await prisma.payslip.findMany({
+      where: buildMonthWhere(filters.month),
+      include: empInclude,
+      orderBy: [{ year: 'desc' }, { month: 'desc' }, { version: 'desc' }]
     });
+    return dedupeLatest(rows);
   } else if (type === 'pf') {
-    return await prisma.payroll.findMany({ 
-      where: filters.month ? { month: filters.month } : {},
-      select: { ...empSelect, employeeId: true, basicSalary: true, pfDeduction: true, month: true } 
+    const rows = await prisma.payslip.findMany({
+      where: buildMonthWhere(filters.month),
+      include: empInclude,
+      orderBy: [{ year: 'desc' }, { month: 'desc' }, { version: 'desc' }]
     });
+    return dedupeLatest(rows).map(r => ({
+      employeeId: r.employeeId,
+      employee: r.employee,
+      basicSalary: r.basicSalary,
+      pfDeduction: r.deductions?.find(d => d.label?.toLowerCase().includes('pf'))?.amount ?? 0,
+      month: r.month,
+      year: r.year
+    }));
   } else if (type === 'prof-tax') {
-    return await prisma.payroll.findMany({ 
-      where: filters.month ? { month: filters.month } : {},
-      select: { ...empSelect, employeeId: true, grossSalary: true, professionalTax: true, month: true } 
+    const rows = await prisma.payslip.findMany({
+      where: buildMonthWhere(filters.month),
+      include: empInclude,
+      orderBy: [{ year: 'desc' }, { month: 'desc' }, { version: 'desc' }]
     });
+    return dedupeLatest(rows).map(r => ({
+      employeeId: r.employeeId,
+      employee: r.employee,
+      grossSalary: r.grossSalary,
+      professionalTax: r.deductions?.find(d => d.label?.toLowerCase().includes('professional'))?.amount ?? 0,
+      month: r.month,
+      year: r.year
+    }));
   } else if (type === 'ytd') {
     const whereClause = {};
     if (filters.employeeId) whereClause.employeeId = filters.employeeId;
-    if (filters.year) whereClause.month = { startsWith: filters.year };
-    return await prisma.payroll.findMany({ 
+    if (filters.year) whereClause.year = parseInt(filters.year, 10);
+    const rows = await prisma.payslip.findMany({
       where: whereClause,
-      include: empSelect,
-      orderBy: { month: 'asc' }
+      include: empInclude,
+      orderBy: [{ year: 'asc' }, { month: 'asc' }]
     });
+    return dedupeLatest(rows);
   }
   return [];
 };

@@ -1,480 +1,276 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, Input } from '../../../features/ui';
 import { useAuth } from '../../../features/auth/AuthContext';
 import api from '../../../services/api';
 
-const STEPS = [
-  'Fetching Data',
-  'Calculating Salaries',
-  'Saving Records',
-  'Generating Payslips',
-  'Done'
-];
-
 export default function ProcessPayroll() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
 
-  const [month, setMonth] = useState(() => new Date().toISOString().substring(0, 7));
-  const [summary, setSummary] = useState(null);
-  const [showSummaryTable, setShowSummaryTable] = useState(false);
+  const now = new Date();
+  const [month, setMonth] = useState(String(now.getMonth() + 1).padStart(2, '0'));
+  const [year, setYear]   = useState(String(now.getFullYear()));
 
-  const [previewData, setPreviewData] = useState(null);
+  const [preview, setPreview]           = useState(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
+  const [previewError, setPreviewError] = useState(null);
 
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isValidating, setIsValidating] = useState(false);
-  const [processStep, setProcessStep] = useState(-1);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [showValidateConfirm, setShowValidateConfirm] = useState(false);
+  const [processing, setProcessing]     = useState(false);
+  const [processResult, setProcessResult] = useState(null);
+  const [processError, setProcessError] = useState(null);
 
-  const [selectedEmployee, setSelectedEmployee] = useState(null);
-  const [toastMessage, setToastMessage] = useState(null);
-  const [failedEmployees, setFailedEmployees] = useState([]);
-  const [processingIndividual, setProcessingIndividual] = useState(null);
+  const [showConfirm, setShowConfirm]   = useState(false);
+  const [toast, setToast]               = useState(null);
 
-  const formatINR = (val) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(val || 0);
-  };
+  const monthStr = `${year}-${month}`;
 
-  const fmtMonth = m => {
-    if (!m) return '—';
-    const [year, month] = m.split('-');
-    return new Date(year, month - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
-  };
-
-  // Load from URL query ?month= if present
-  useEffect(() => {
-    const urlMonth = new URLSearchParams(location.search).get('month');
-    if (urlMonth) setMonth(urlMonth);
-  }, [location]);
-
-  // Fetch summary when month changes
-  const fetchSummary = async () => {
-    try {
-      const res = await api.get(`/payrun-summary?month=${month}`);
-      setSummary(res);
-    } catch (e) {
-      setSummary(null);
-    }
-  };
+  const fmt = (n) => '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+  const fmtMonth = (m, y) => new Date(Number(y), Number(m) - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
 
   useEffect(() => {
-    if (month) {
-      fetchSummary();
-      handlePreview();
-    }
-  }, [month]);
+    if (user?.role === 'EMPLOYEE') navigate('/employee/payslips', { replace: true });
+    else if (user?.role === 'HR_OFFICER') navigate('/dashboard', { replace: true });
+  }, [user, navigate]);
 
-  // Clear toast after 5s
   useEffect(() => {
-    if (user?.role === 'EMPLOYEE') {
-      navigate('/payroll/payslips', { replace: true });
-    } else if (user?.role === 'HR_OFFICER') {
-      navigate('/dashboard', { replace: true });
-    }
-
-    if (toastMessage) {
-      const t = setTimeout(() => setToastMessage(null), 5000);
+    if (toast) {
+      const t = setTimeout(() => setToast(null), 5000);
       return () => clearTimeout(t);
     }
-  }, [toastMessage, user, navigate]);
+  }, [toast]);
 
-  const handlePreview = async () => {
+  const handlePreview = useCallback(async () => {
     setLoadingPreview(true);
-    setPreviewData(null);
-    setFailedEmployees([]);
+    setPreviewError(null);
+    setPreview(null);
+    setProcessResult(null);
     try {
-      const res = await api.get(`/payroll/preview?month=${month}`);
-      setPreviewData(res);
+      const res = await api.get(`/payroll/preview?month=${month}&year=${year}`);
+      setPreview(res);
     } catch (e) {
-      setToastMessage(`Preview failed: ${e.message}`);
+      setPreviewError(e.message || 'Failed to load preview');
     } finally {
       setLoadingPreview(false);
     }
-  };
+  }, [month, year]);
 
-  const executeProcess = async () => {
+  useEffect(() => {
+    handlePreview();
+  }, [month, year]);
+
+  const handleRunPayrun = async () => {
     setShowConfirm(false);
-    setIsProcessing(true);
-    setProcessStep(0);
-    setFailedEmployees([]);
-
+    setProcessing(true);
+    setProcessError(null);
     try {
-      const res = await api.post('/payroll/process', { month });
-      setProcessStep(4);
-      setTimeout(() => {
-        setIsProcessing(false);
-        setProcessStep(-1);
-        setToastMessage(`Payrun complete — ${res.processed?.length || 0} payslips generated`);
-        fetchSummary();
-        setPreviewData(null);
-      }, 1000);
+      const res = await api.post('/payroll/process', { month: Number(month), year: Number(year) });
+      setProcessResult(res);
+      setToast(`✓ Payrun complete — ${res.payslipCount} payslips generated for ${fmtMonth(month, year)}`);
+      handlePreview();
     } catch (e) {
-      setToastMessage(`Error: ${e.message}`);
-      setProcessStep(-1);
-      setIsProcessing(false);
-    }
-  };
-
-  const handleIndividualPayrun = async (employeeId, employeeName) => {
-    setProcessingIndividual(employeeId);
-    try {
-      await api.post('/payroll/process-individual', { employeeId, month });
-      setToastMessage(`✓ Payslip generated for ${employeeName}`);
-      fetchSummary();
-      // Optional: Refresh preview to show updated status if needed, 
-      // but usually individual payrun removes them from 'pending' preview or updates status.
-    } catch (e) {
-      setToastMessage(`Error for ${employeeName}: ${e.message}`);
+      setProcessError(e.message || 'Payrun failed');
+      setToast(`✗ Payrun failed: ${e.message}`);
     } finally {
-      setProcessingIndividual(null);
-    }
-  };
-
-  const executeValidate = async () => {
-    setShowValidateConfirm(false);
-    setIsValidating(true);
-    try {
-      await api.post('/validate', { month });
-      setToastMessage(`✓ Payroll validated and locked`);
-      fetchSummary();
-    } catch (e) {
-      setToastMessage(`Validation failed: ${e.message}`);
-    } finally {
-      setIsValidating(false);
+      setProcessing(false);
     }
   };
 
   return (
-    <div className="px-8 py-8 animate-fade-in space-y-6 relative">
+    <div className="px-8 py-8 animate-fade-in space-y-6">
 
-      {/* Toast */}
-      {toastMessage && (
-        <div className="fixed top-4 right-4 z-50 bg-ink text-white px-4 py-3 rounded shadow-lg max-w-sm animate-fade-in">
-          {toastMessage}
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 px-5 py-3 rounded-lg shadow-lg text-sm font-medium animate-fade-in ${
+          toast.startsWith('✓') ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+        }`}>
+          {toast}
         </div>
       )}
 
-      {/* ACTION BUTTONS ROW */}
-      <div className="flex items-center justify-between mb-8">
+      {/* Header */}
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-gray-900">Process Payroll</h1>
-          <p className="mt-1 text-sm text-gray-500 font-medium italic">Manage monthly salary cycles and validation</p>
+          <p className="mt-1 text-sm text-gray-500 italic">Manage monthly salary cycles and validation</p>
         </div>
-        <div className="flex gap-4">
+        <div className="flex gap-3">
           <button
             onClick={() => setShowConfirm(true)}
-            disabled={summary?.status === 'LOCKED' || isProcessing}
-            className="px-8 py-2.5 bg-[#D63384] text-white rounded-full text-sm font-bold hover:opacity-90 transition shadow-md flex items-center gap-2 disabled:bg-gray-300 disabled:cursor-not-allowed"
+            disabled={processing || loadingPreview || !preview}
+            className="px-7 py-2.5 bg-[#D63384] text-white rounded-full text-sm font-bold hover:opacity-90 transition shadow-md disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
           >
-            {isProcessing && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
+            {processing && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
             Run Payrun
-          </button>
-          <button
-            onClick={() => setShowValidateConfirm(true)}
-            disabled={!summary || summary.status !== 'PROCESSED' || isValidating}
-            className="px-8 py-2.5 bg-[#198754] text-white rounded-full text-sm font-bold hover:opacity-90 transition shadow-md flex items-center gap-2 disabled:bg-gray-300 disabled:cursor-not-allowed"
-          >
-            {isValidating && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
-            Validate Cycle
           </button>
         </div>
       </div>
 
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight text-ink">Process Payroll</h1>
-        <p className="mt-1 text-sm text-ink-muted">Select a month to preview and process payroll</p>
-      </div>
-
-      {/* Controls */}
+      {/* Month Selector */}
       <Card className="p-6">
-        <div className="flex flex-col sm:flex-row gap-4 items-center">
-          <Input 
-            type="month" 
-            value={month} 
-            onChange={e => setMonth(e.target.value)}
-            className="w-full sm:w-auto"
-            disabled={isProcessing}
-          />
+        <div className="flex flex-wrap gap-4 items-end">
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wider">Month</label>
+            <select
+              value={month}
+              onChange={e => setMonth(e.target.value)}
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+            >
+              {Array.from({ length: 12 }, (_, i) => {
+                const m = String(i + 1).padStart(2, '0');
+                return <option key={m} value={m}>{new Date(2000, i).toLocaleString('default', { month: 'long' })}</option>;
+              })}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wider">Year</label>
+            <select
+              value={year}
+              onChange={e => setYear(e.target.value)}
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+            >
+              {[2023, 2024, 2025, 2026, 2027].map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          </div>
           <button
             onClick={handlePreview}
-            disabled={isProcessing || loadingPreview}
-            className="px-4 py-2 border border-border-strong rounded-md text-ink-muted hover:bg-surface-muted font-medium transition disabled:opacity-50"
+            disabled={loadingPreview}
+            className="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition font-medium disabled:opacity-50"
           >
-            {loadingPreview ? 'Loading...' : 'Preview Payroll'}
+            {loadingPreview ? 'Loading...' : 'Refresh Preview'}
           </button>
         </div>
       </Card>
 
-      {/* PAYRUN SUMMARY ROW */}
-      {summary && (
-        <div className="space-y-4">
-          <Card
-            className={`p-5 cursor-pointer hover:shadow-md transition-all border-l-4 ${summary.status === 'LOCKED' ? 'border-blue-500 bg-blue-50/20' : 'border-[#D63384] bg-white'}`}
-            onClick={() => setShowSummaryTable(!showSummaryTable)}
-          >
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-6">
-                <div>
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-0.5">Pay Period</span>
-                  <span className="font-bold text-gray-900 text-lg">{fmtMonth(month)}</span>
-                </div>
-                <div className="h-10 w-px bg-gray-100 mx-2"></div>
-                <div>
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-0.5">Employer Cost</span>
-                  <span className="text-gray-900 font-bold">{formatINR(summary.employerCost)}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-0.5">Gross Total</span>
-                  <span className="text-gray-900 font-bold">{formatINR(summary.gross)}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-0.5">Net Payout</span>
-                  <span className="text-green-600 font-extrabold">{formatINR(summary.net)}</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                {summary.status === 'PROCESSED' ? (
-                  <span className="px-4 py-1 bg-green-100 text-green-700 text-[10px] font-black uppercase tracking-wider rounded-full border border-green-200">Done</span>
-                ) : summary.status === 'LOCKED' ? (
-                  <span className="px-4 py-1 bg-blue-100 text-blue-700 text-[10px] font-black uppercase tracking-wider rounded-full border border-blue-200">Validated</span>
-                ) : (
-                  <span className="px-4 py-1 bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-wider rounded-full border border-amber-200">Draft</span>
-                )}
-                <span className={`text-gray-400 transition-transform ${showSummaryTable ? 'rotate-180' : ''}`}>▼</span>
-              </div>
-            </div>
-          </Card>
-
-          {showSummaryTable && (
-            <Card className="overflow-hidden animate-fade-in border-t-0 rounded-t-none">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 text-left">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Pay Period</th>
-                      <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Employee</th>
-                      <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Employer Cost</th>
-                      <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Basic Wage</th>
-                      <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Gross Wage</th>
-                      <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Net Wage</th>
-                      <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {summary.payslips.map((p, i) => (
-                      <tr
-                        key={i}
-                        onClick={() => {
-                          if (p.payslipId) {
-                            navigate(`/payroll/payslip/${p.payslipId}`);
-                          } else {
-                            navigate(`/payroll/payslip/new?employeeId=${p.employeeId}&month=${month}`);
-                          }
-                        }}
-                        className="hover:bg-gray-50/80 cursor-pointer transition-colors border-b border-gray-50 last:border-0"
-                      >
-                        <td className="px-6 py-4 text-xs font-bold text-gray-400">[{month}]</td>
-                        <td className="px-6 py-4 text-sm font-bold text-gray-900">{p.employeeName}</td>
-                        <td className="px-6 py-4 text-sm text-gray-600 font-medium">{formatINR(p.employerCost)}</td>
-                        <td className="px-6 py-4 text-sm text-gray-500">{formatINR(p.basicWage)}</td>
-                        <td className="px-6 py-4 text-sm text-gray-500">{formatINR(p.grossWage)}</td>
-                        <td className={`px-6 py-4 text-sm font-black ${p.cappedAtZero ? 'text-amber-600' : 'text-green-600'}`}>
-                          {formatINR(p.netWage)}
-                        </td>
-                        <td className="px-6 py-4">
-                          {p.status === 'PROCESSED' ? (
-                            <span className="px-2.5 py-0.5 text-[10px] font-black bg-green-50 text-green-600 rounded-full border border-green-100">DONE</span>
-                          ) : (
-                            <span className="px-2.5 py-0.5 text-[10px] font-black bg-blue-50 text-blue-600 rounded-full border border-blue-100">VALIDATED</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          )}
-        </div>
-      )}
-
-      {/* Confirmation Dialogs */}
-      {showConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-fade-in">
-          <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-xl">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Confirm Process</h3>
-            <p className="text-gray-600 mb-6">Run payroll for {fmtMonth(month)}? All payslips will be generated.</p>
-            <div className="flex justify-end gap-3">
-              <button onClick={() => setShowConfirm(false)} className="px-4 py-2 text-ink-muted hover:bg-surface-muted rounded-md">Cancel</button>
-              <button onClick={executeProcess} className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Confirm</button>
-            </div>
+      {/* Process Result Banner */}
+      {processResult && (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3 animate-fade-in">
+          <span className="text-2xl">✓</span>
+          <div>
+            <p className="font-bold text-green-800">{processResult.payslipCount} payslips generated successfully</p>
+            <p className="text-sm text-green-700">
+              {fmtMonth(processResult.month, processResult.year)} · Version {processResult.version} ·
+              Net Total: {fmt(processResult.totals?.net)}
+            </p>
           </div>
         </div>
       )}
 
-      {showValidateConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-fade-in">
-          <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-xl">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Confirm Validation</h3>
-            <p className="text-gray-600 mb-6">Validate and lock payroll for {fmtMonth(month)}? Cannot be undone.</p>
-            <div className="flex justify-end gap-3">
-              <button onClick={() => setShowValidateConfirm(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md">Cancel</button>
-              <button onClick={executeValidate} className="px-4 py-2 bg-[#198754] text-white rounded-md hover:bg-[#198754]/90">Confirm</button>
-            </div>
-          </div>
+      {/* Errors */}
+      {previewError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
+          Preview failed: {previewError}
         </div>
       )}
-
-      {/* Progress Stepper */}
-      {isProcessing && (
-        <Card className="p-6 animate-fade-in">
-          <h3 className="font-medium text-ink mb-6">Processing Status</h3>
-          <div className="relative flex justify-between items-center">
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-gray-200 -z-10"></div>
-            <div
-              className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-brand-600 -z-10 transition-all duration-500"
-              style={{ width: `${(processStep / (STEPS.length - 1)) * 100}%` }}
-            ></div>
-
-            {STEPS.map((step, idx) => {
-              const active = idx <= processStep;
-              const current = idx === processStep;
-              return (
-                <div key={idx} className="flex flex-col items-center gap-2 bg-white px-2">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-colors ${active ? 'bg-brand-600 border-brand-600 text-white' : 'bg-white border-gray-300 text-gray-400'
-                    } ${current ? 'ring-4 ring-brand-100' : ''}`}>
-                    {idx + 1}
-                  </div>
-                  <span className={`text-xs font-medium ${active ? 'text-ink' : 'text-ink-soft'}`}>{step}</span>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
+      {processError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
+          Payrun failed: {processError}
+        </div>
       )}
 
       {/* Preview Table */}
-      {previewData && !isProcessing && (
+      {loadingPreview && (
+        <Card className="p-8 text-center animate-pulse text-gray-400">Loading preview for {fmtMonth(month, year)}...</Card>
+      )}
+
+      {preview && !loadingPreview && (
         <Card className="overflow-hidden animate-fade-in">
-          <div className="bg-gray-50 px-6 py-3 border-b border-gray-200 flex justify-between items-center">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-gray-700">Payroll Preview</h3>
-            <button
-              onClick={() => setPreviewData(null)}
-              className="text-gray-400 hover:text-gray-600"
-            >✕</button>
+          <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h3 className="text-sm font-bold uppercase tracking-wider text-gray-700">
+                Payroll Preview — {fmtMonth(month, year)}
+              </h3>
+              <p className="text-xs text-gray-400 mt-0.5">{preview.rows?.length || 0} employees · Working days: {preview.workingDays}</p>
+            </div>
+            <div className="flex gap-6 text-sm">
+              <div className="text-right">
+                <span className="block text-[10px] text-gray-400 uppercase font-bold">Gross Total</span>
+                <span className="font-bold text-gray-800">{fmt(preview.totals?.gross)}</span>
+              </div>
+              <div className="text-right">
+                <span className="block text-[10px] text-gray-400 uppercase font-bold">Net Payout</span>
+                <span className="font-bold text-green-600">{fmt(preview.totals?.net)}</span>
+              </div>
+              <div className="text-right">
+                <span className="block text-[10px] text-gray-400 uppercase font-bold">Deductions</span>
+                <span className="font-bold text-red-500">{fmt(preview.totals?.deductions)}</span>
+              </div>
+            </div>
           </div>
+
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-left">
+            <table className="min-w-full divide-y divide-gray-100 text-left">
               <thead className="bg-surface-muted">
                 <tr>
-                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Employee Name</th>
-                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Basic Salary</th>
-                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Working Days</th>
-                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Present</th>
-                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">LOP Days</th>
-                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Gross</th>
-                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Deductions</th>
-                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Net Salary</th>
-                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Action</th>
+                  <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Employee</th>
+                  <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Department</th>
+                  <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Basic</th>
+                  <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Working Days</th>
+                  <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Paid Days</th>
+                  <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">LOP</th>
+                  <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Gross</th>
+                  <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Deductions</th>
+                  <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Net</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {previewData.map((row, i) => {
-                  if (row.status === 'ERROR') {
-                    return (
-                      <tr
-                        key={i}
-                        onClick={() => navigate(`/payroll/payslip/new?employeeId=${row.employeeId}&month=${month}`)}
-                        className="bg-red-50 hover:bg-red-100 cursor-pointer transition relative z-10"
-                      >
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900">{row.employeeName}</td>
-                        <td colSpan="9" className="px-6 py-4">
-                          <div className="flex items-center justify-between">
-                            <span className="text-red-600 font-bold">{row.error}</span>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigate(`/payroll/payslip/new?employeeId=${row.employeeId}&month=${month}`);
-                              }}
-                              className="text-brand-600 hover:text-brand-900 font-bold text-sm bg-brand-50 px-4 py-1.5 rounded-md border border-brand-200 shadow-sm transition-all"
-                            >
-                              View Detail & Manage
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  }
-                  return (
-                    <tr
-                      key={i}
-                      onClick={() => navigate(`/payroll/payslip/new?employeeId=${row.employeeId}&month=${month}`)}
-                      className="hover:bg-gray-50 cursor-pointer transition relative z-10"
-                      title="Click to view/manage individual payslip"
-                    >
-                      <td className="px-6 py-4 text-sm font-medium text-ink">{row.employeeName}</td>
-                      <td className="px-6 py-4 text-sm text-ink-muted">{formatINR(row.basicSalary)}</td>
-                      <td className="px-6 py-4 text-sm text-ink-muted">{row.workingDays}</td>
-                      <td className="px-6 py-4 text-sm text-ink-muted">{row.presentDays}</td>
-                      <td className="px-6 py-4 text-sm text-red-500 font-medium">{row.lopDays}</td>
-                      <td className="px-6 py-4 text-sm text-ink-muted">{formatINR(row.grossSalary)}</td>
-                      <td className="px-6 py-4 text-sm text-ink-muted">{formatINR(row.totalDeductions)}</td>
-                      <td className="px-6 py-4 text-sm font-bold text-ink">
-                        {row.cappedAtZero ? (
-                          <span className="inline-flex items-center gap-1 text-amber-600 bg-amber-50 px-2 py-0.5 rounded text-xs">Capped at ₹0</span>
-                        ) : (
-                          <span className="text-green-600">{formatINR(row.netSalary)}</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">PREVIEW</span>
-                      </td>
-                      <td className="px-6 py-4 flex gap-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/payroll/payslip/new?employeeId=${row.employeeId}&month=${month}`);
-                          }}
-                          className="text-brand-600 hover:text-brand-900 font-bold text-sm bg-brand-50 px-3 py-1 rounded border border-brand-200"
-                        >
-                          View Detail
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleIndividualPayrun(row.employeeId, row.employeeName);
-                          }}
-                          disabled={processingIndividual === row.employeeId || isProcessing}
-                          className="px-3 py-1 bg-teal-600 text-white rounded text-sm font-medium hover:bg-teal-700 transition disabled:opacity-50 flex items-center gap-1"
-                        >
-                          {processingIndividual === row.employeeId && <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
-                          Payrun
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
+              <tbody className="bg-white divide-y divide-gray-50">
+                {(preview.rows || []).map((row, i) => (
+                  <tr key={i} className="hover:bg-gray-50 transition">
+                    <td className="px-6 py-4">
+                      <div className="font-semibold text-sm text-gray-900">{row.employee.firstName} {row.employee.lastName}</div>
+                      <div className="text-xs text-gray-400">{row.employee.position || '—'}</div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">{row.employee.department || '—'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{fmt(row.basicSalary)}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{row.workingDays}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{row.paidDays}</td>
+                    <td className="px-6 py-4 text-sm text-red-500 font-medium">{row.lopDays}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700">{fmt(row.grossSalary)}</td>
+                    <td className="px-6 py-4 text-sm text-red-500">{fmt(row.totalDeductions)}</td>
+                    <td className="px-6 py-4 text-sm font-bold text-green-600">{fmt(row.netSalary)}</td>
+                  </tr>
+                ))}
+                {(!preview.rows || preview.rows.length === 0) && (
+                  <tr><td colSpan="9" className="p-8 text-center text-gray-400">No active employees found.</td></tr>
+                )}
               </tbody>
+              {preview.rows?.length > 0 && (
+                <tfoot className="bg-gray-50 border-t-2 border-gray-200 font-bold">
+                  <tr>
+                    <td colSpan="6" className="px-6 py-3 text-sm text-gray-500 uppercase tracking-wider text-right">Totals</td>
+                    <td className="px-6 py-3 text-sm text-gray-800">{fmt(preview.totals?.gross)}</td>
+                    <td className="px-6 py-3 text-sm text-red-500">{fmt(preview.totals?.deductions)}</td>
+                    <td className="px-6 py-3 text-sm text-green-600">{fmt(preview.totals?.net)}</td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
         </Card>
       )}
 
-
+      {/* Confirm Modal */}
+      {showConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-fade-in">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Confirm Run Payrun</h3>
+            <p className="text-gray-600 mb-2 text-sm">
+              This will generate payslips for <strong>{preview?.rows?.length || 0} employees</strong> for <strong>{fmtMonth(month, year)}</strong>.
+            </p>
+            {preview?.rows?.length > 0 && (
+              <div className="bg-gray-50 rounded-lg p-3 mb-4 text-sm space-y-1">
+                <div className="flex justify-between"><span className="text-gray-500">Net Payout</span><span className="font-bold text-green-600">{fmt(preview.totals?.net)}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">Total Deductions</span><span className="font-bold text-red-500">{fmt(preview.totals?.deductions)}</span></div>
+              </div>
+            )}
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setShowConfirm(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm transition">Cancel</button>
+              <button onClick={handleRunPayrun} className="px-5 py-2 bg-[#D63384] text-white rounded-lg text-sm font-bold hover:opacity-90 transition">Confirm & Run</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
-
-

@@ -1,19 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Plus } from 'lucide-react';
-import { Avatar, Button } from '../../../features/ui';
+import { Avatar, Button, AttendanceStatusBadge } from '../../../features/ui';
 import { DEPARTMENTS, ALL_ROLES } from '../../../features/employees/employeeMocks';
 import { employeesService } from '../../../services/usersService';
 
 const NON_ADMIN_ROLES = ALL_ROLES.filter((r) => r.value !== 'ADMIN');
-
-function StatusIndicator({ status }) {
-  // Orange dot as shown in the screenshot for active/present employees
-  const dotColor = status === 'ABSENT' ? 'bg-border-strong' : 'bg-orange-400';
-  return (
-    <div className={`h-2.5 w-2.5 rounded-full ${dotColor} ring-2 ring-white`} />
-  );
-}
+const REFRESH_INTERVAL_MS = 60_000;
 
 export default function EmployeesPage() {
   const navigate = useNavigate();
@@ -24,21 +17,27 @@ export default function EmployeesPage() {
   const [department, setDepartment] = useState('');
   const [role, setRole] = useState('');
   const [error, setError] = useState('');
+  const timerRef = useRef(null);
+
+  const fetchEmployees = async () => {
+    try {
+      const params = new URLSearchParams({ search: query, role }).toString();
+      const res = await employeesService.list(params);
+      setEmployeesList(res.employees || []);
+      setTotal(res.total || 0);
+    } catch (err) {
+      setError(err.message || 'Failed to fetch employees');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const params = new URLSearchParams({ search: query, role }).toString();
-        const res = await employeesService.list(params);
-        setEmployeesList(res.employees || []);
-        setTotal(res.total || 0);
-      } catch (err) {
-        setError(err.message || 'Failed to fetch employees');
-      } finally {
-        setLoading(false);
-      }
-    })();
+    setLoading(true);
+    fetchEmployees();
+    clearInterval(timerRef.current);
+    timerRef.current = setInterval(fetchEmployees, REFRESH_INTERVAL_MS);
+    return () => clearInterval(timerRef.current);
   }, [query, role]);
 
   const filtered = employeesList.filter((e) => {
@@ -116,7 +115,7 @@ export default function EmployeesPage() {
             className="group relative flex flex-col items-center rounded-2xl border border-border bg-white p-8 text-center shadow-sm transition-all hover:shadow-md hover:ring-2 hover:ring-green-500/20"
           >
             <div className="absolute right-4 top-4">
-              <StatusIndicator status={e.attendanceStatus} />
+              <AttendanceStatusBadge status={e.attendanceStatus} />
             </div>
             
             <Avatar name={`${e.firstName} ${e.lastName}`} className="h-20 w-20 text-xl font-bold bg-green-50 text-green-700 ring-4 ring-gray-50" />

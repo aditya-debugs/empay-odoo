@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Card, Button } from '../../../features/ui';
-import { Download, AlertCircle, FileText } from 'lucide-react';
+import { Download, AlertCircle } from 'lucide-react';
 import api from '../../../services/api';
 import { downloadPayslipPdf } from '../../../utils/payslipPdf';
 
@@ -47,7 +47,6 @@ export default function PayslipsPage() {
   const handleRaiseDispute = async (e) => {
     e.preventDefault();
     if (!selectedPayslip) return;
-
     setSubmitting(true);
     try {
       await api.post('/payslip-disputes', {
@@ -65,22 +64,8 @@ export default function PayslipsPage() {
     }
   };
 
-  const formatINR = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val || 0);
-
-  const handleDownload = async (payslip) => {
-    try {
-      const response = await api.get(`/payslips/${payslip.id}/pdf`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([response]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `payslip_${payslip.year}_${payslip.month}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (err) {
-      setError('Failed to download PDF');
-    }
-  };
+  const formatINR = (val) =>
+    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val || 0);
 
   if (loading) return <div className="p-8">Loading...</div>;
 
@@ -93,85 +78,72 @@ export default function PayslipsPage() {
 
       {error && <div className="p-3 bg-danger-50 text-danger-700 rounded-xl text-sm border border-danger-100">{error}</div>}
 
-      {/* Grid of Payslips - Now more professional */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {payslips.length === 0 ? (
           <div className="col-span-full py-20 text-center text-ink-soft italic">
             No official payslips have been issued for your account yet.
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {payslips.map((payslip) => (
-              <Card key={payslip.id} className="p-6 hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h3 className="font-semibold">
-                      {new Date(`${payslip.year}-${String(payslip.month).padStart(2, '0')}-01`).toLocaleString('default', { month: 'long', year: 'numeric' })}
-                    </h3>
-                    <p className="text-xs text-ink-muted mt-1">
-                      System Generated
-                    </p>
-                  </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    payslip.status === 'GENERATED' || payslip.status === 'LOCKED' ? 'bg-success-100 text-success-700' : 'bg-warning-100 text-warning-700'
-                  }`}>
-                    {payslip.status}
-                  </span>
+          payslips.map((payslip) => (
+            <Card key={payslip.id} className="p-6 hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h3 className="font-semibold">
+                    {new Date(`${payslip.year}-${String(payslip.month).padStart(2, '0')}-01`).toLocaleString('default', { month: 'long', year: 'numeric' })}
+                  </h3>
+                  <p className="text-xs text-ink-muted mt-1">System Generated</p>
                 </div>
                 <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-tight ${
-                  payslip.status === 'GENERATED' ? 'bg-success-50 text-success-600' : 'bg-warning-50 text-warning-600'
+                  payslip.status === 'GENERATED' || payslip.status === 'LOCKED'
+                    ? 'bg-success-50 text-success-600'
+                    : 'bg-warning-50 text-warning-600'
                 }`}>
                   {payslip.status}
                 </span>
               </div>
 
-                <div className="space-y-3 mb-4 pb-4 border-b border-ink-200">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-ink-muted">Basic Salary</span>
-                    <span className="text-sm font-semibold">{formatINR(payslip.basicSalary)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-ink-muted">Gross Salary</span>
-                    <span className="text-sm font-semibold">{formatINR(payslip.grossSalary)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-ink-muted">Total Deductions</span>
-                    <span className="text-sm font-semibold text-danger-600">-{formatINR(payslip.totalDeductions)}</span>
-                  </div>
-                  <div className="flex justify-between bg-primary-50 p-2 rounded">
-                    <span className="text-sm font-medium">Net Salary</span>
-                    <span className="text-sm font-bold text-primary-600">{formatINR(payslip.netSalary)}</span>
-                  </div>
+              <div className="space-y-3 mb-4">
+                <div className="flex justify-between">
+                  <span className="text-sm text-ink-muted">Basic Salary</span>
+                  <span className="text-sm font-semibold">{formatINR(payslip.basicSalary)}</span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-ink-muted">Gross Salary</span>
+                  <span className="text-sm font-semibold">{formatINR(payslip.grossSalary)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-ink-muted">Total Deductions</span>
+                  <span className="text-sm font-semibold text-danger-600">-{formatINR(payslip.totalDeductions)}</span>
+                </div>
+              </div>
 
-                <div className="pt-4 border-t border-border flex justify-between items-baseline">
-                   <span className="text-xs font-bold text-ink-muted uppercase tracking-wider">Net Payable</span>
-                   <span className="text-xl font-black text-brand-600">₹{Number(payslip.netSalary || 0).toLocaleString('en-IN')}</span>
-                </div>
+              <div className="pt-4 border-t border-border flex justify-between items-baseline mb-4">
+                <span className="text-xs font-bold text-ink-muted uppercase tracking-wider">Net Payable</span>
+                <span className="text-xl font-black text-brand-600">₹{Number(payslip.netSalary || 0).toLocaleString('en-IN')}</span>
+              </div>
 
-                <div className="flex gap-2 pt-2">
-                  <Button
-                    size="sm"
-                    className="flex-1 text-xs font-bold"
-                    leftIcon={<Download className="h-3 w-3" />}
-                    onClick={() => handleDownload(payslip)}
-                    loading={downloadingId === payslip.id}
-                  >
-                    Download PDF
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="flex-1 text-xs font-bold"
-                    leftIcon={<AlertCircle className="h-3 w-3" />}
-                    onClick={() => {
-                      setSelectedPayslip(payslip);
-                      setShowDisputeForm(true);
-                    }}
-                  >
-                    Raise Dispute
-                  </Button>
-                </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  className="flex-1 text-xs font-bold"
+                  leftIcon={<Download className="h-3 w-3" />}
+                  onClick={() => handleDownload(payslip)}
+                  loading={downloadingId === payslip.id}
+                >
+                  Download PDF
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="flex-1 text-xs font-bold"
+                  leftIcon={<AlertCircle className="h-3 w-3" />}
+                  onClick={() => {
+                    setSelectedPayslip(payslip);
+                    setShowDisputeForm(true);
+                  }}
+                >
+                  Raise Dispute
+                </Button>
               </div>
             </Card>
           ))
@@ -181,8 +153,8 @@ export default function PayslipsPage() {
       {/* Disputes Section */}
       {disputes.length > 0 && (
         <div className="pt-8">
-           <h2 className="text-sm font-bold uppercase tracking-widest text-ink-soft mb-4">Pending Disputes</h2>
-           <div className="space-y-3">
+          <h2 className="text-sm font-bold uppercase tracking-widest text-ink-soft mb-4">Pending Disputes</h2>
+          <div className="space-y-3">
             {disputes.map((dispute) => (
               <Card key={dispute.id} className="p-4 border-l-4 border-l-warning-500">
                 <div className="flex items-center justify-between">
@@ -211,10 +183,12 @@ export default function PayslipsPage() {
 
       {/* Dispute Modal */}
       {showDisputeForm && selectedPayslip && (
-        <div className="fixed inset-0 bg-ink/30 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 bg-ink/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <Card className="p-6 max-w-md w-full shadow-2xl border-none">
             <h3 className="text-lg font-bold text-ink mb-1">Raise a Dispute</h3>
-            <p className="text-xs text-ink-soft mb-6">Period: {new Date(0, selectedPayslip.month - 1).toLocaleString('default', { month: 'long' })} {selectedPayslip.year}</p>
+            <p className="text-xs text-ink-soft mb-6">
+              Period: {new Date(0, selectedPayslip.month - 1).toLocaleString('default', { month: 'long' })} {selectedPayslip.year}
+            </p>
 
             <form onSubmit={handleRaiseDispute} className="space-y-4">
               <div>
@@ -246,12 +220,12 @@ export default function PayslipsPage() {
                     ? 'bg-warning-50 border-warning-200 text-warning-800'
                     : 'bg-brand-50 border-brand-200 text-brand-800'
                 }`}>
-                   <span className="text-[10px] font-bold uppercase tracking-widest">Auto-Routing To:</span>
-                   <span className="text-xs font-black uppercase">
-                     {['Mismatched Work Hours', 'Unrecorded Overtime', 'Balance Disputes', 'Missing Benefits/Allowances'].includes(disputeReason)
-                       ? 'Payroll Officer'
-                       : 'HR & Admin Head'}
-                   </span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest">Auto-Routing To:</span>
+                  <span className="text-xs font-black uppercase">
+                    {['Mismatched Work Hours', 'Unrecorded Overtime', 'Balance Disputes', 'Missing Benefits/Allowances'].includes(disputeReason)
+                      ? 'Payroll Officer'
+                      : 'HR & Admin Head'}
+                  </span>
                 </div>
               )}
 
@@ -261,12 +235,11 @@ export default function PayslipsPage() {
                   className="w-full px-4 py-3 bg-surface-muted border border-border-strong rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
                   rows="3"
                   placeholder="Provide explicit clarification to assist the reviewer..."
-                  id="disputeDetails"
                 />
               </div>
 
               <div className="flex gap-2 pt-4 border-t border-border mt-2">
-                 <Button
+                <Button
                   type="button"
                   variant="secondary"
                   className="flex-1 font-bold"
@@ -294,6 +267,3 @@ export default function PayslipsPage() {
     </div>
   );
 }
-
-
-

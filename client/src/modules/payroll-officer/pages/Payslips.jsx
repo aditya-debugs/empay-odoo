@@ -1,16 +1,15 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, Input } from '../../../features/ui';
 import { useAuth } from '../../../features/auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../../../services/api';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { downloadPayslipPdf } from '../../../utils/payslipPdf';
 
 export default function Payslips() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [monthFilter, setMonthFilter] = useState(new Date().toISOString().split('T')[0]);
+  const [monthFilter, setMonthFilter] = useState(new Date().toISOString().substring(0, 7));
   const [nameFilter, setNameFilter] = useState('');
 
   const [payslips, setPayslips] = useState([]);
@@ -79,76 +78,9 @@ export default function Payslips() {
     if (e) e.stopPropagation();
     const p = payslips.find(item => item.id === id) || selectedPayslip;
     if (!p) return;
-
     setIsDownloading(true);
     try {
-      const doc = new jsPDF();
-      const monthName = getMonthName(p.month, p.year);
-
-      // Header
-      doc.setFontSize(22);
-      doc.setTextColor(21, 128, 61); // brand-700
-      doc.text('EmPay', 105, 20, { align: 'center' });
-      doc.setFontSize(10);
-      doc.setTextColor(100);
-      doc.text('PAYSLIP - ' + monthName.toUpperCase(), 105, 28, { align: 'center' });
-
-      // Employee Info
-      doc.setDrawColor(200);
-      doc.line(20, 35, 190, 35);
-
-      doc.setFontSize(12);
-      doc.setTextColor(0);
-      const empName = `${p.employee?.firstName || ''} ${p.employee?.lastName || ''}`.trim();
-      doc.text(`Employee: ${empName}`, 20, 45);
-      doc.text(`Designation: ${p.employee?.designation || 'Staff'}`, 20, 52);
-
-      doc.text(`Period: ${monthName}`, 120, 45);
-      doc.text(`Salary Structure: Regular Pay`, 120, 52);
-
-      // Earnings Table
-      const earningsData = (p.earnings || []).map(e => [e.label, 'INR ' + (Number(e.amount) || 0).toLocaleString('en-IN')]);
-      autoTable(doc, {
-        startY: 65,
-        head: [['Earnings', 'Amount']],
-        body: [
-          ...earningsData,
-          [{ content: 'Gross Earnings', styles: { fontStyle: 'bold' } }, { content: 'INR ' + (Number(p.grossSalary) || 0).toLocaleString('en-IN'), styles: { fontStyle: 'bold' } }]
-        ],
-        theme: 'grid',
-        headStyles: { fillColor: [21, 128, 61] },
-        margin: { left: 20, right: 110 }
-      });
-
-      // Deductions Table
-      const deductionsData = (p.deductions || []).map(d => [d.label, 'INR ' + (Number(d.amount) || 0).toLocaleString('en-IN')]);
-      autoTable(doc, {
-        startY: 65,
-        head: [['Deductions', 'Amount']],
-        body: [
-          ...deductionsData,
-          [{ content: 'Total Deductions', styles: { fontStyle: 'bold' } }, { content: 'INR ' + (Number(p.totalDeductions) || 0).toLocaleString('en-IN'), styles: { fontStyle: 'bold' } }]
-        ],
-        theme: 'grid',
-        headStyles: { fillColor: [185, 28, 28] },
-        margin: { left: 110, right: 20 }
-      });
-
-      // Net Salary
-      const finalY = Math.max(doc.lastAutoTable?.finalY || 65, 65);
-      doc.setFillColor(240, 253, 244); // green-50
-      doc.rect(20, finalY + 10, 170, 25, 'F');
-      doc.setFontSize(10);
-      doc.setTextColor(21, 128, 61);
-      doc.text('NET PAYABLE SALARY', 105, finalY + 20, { align: 'center' });
-      doc.setFontSize(18);
-      doc.text('INR ' + (Number(p.netSalary) || 0).toLocaleString('en-IN'), 105, finalY + 30, { align: 'center' });
-
-      doc.setFontSize(8);
-      doc.setTextColor(150);
-      doc.text(`Version ${p.version || 1} - System Generated on ${new Date().toLocaleDateString()}`, 105, finalY + 45, { align: 'center' });
-
-      doc.save(`Payslip_${empName.replace(' ', '_')}_${monthName.replace(' ', '_')}.pdf`);
+      downloadPayslipPdf(p);
       setToastMessage('PDF downloaded successfully!');
     } catch (err) {
       setToastMessage(`Error: ${err.message}`);
@@ -199,7 +131,7 @@ export default function Payslips() {
       <Card className="p-6">
         <div className="flex flex-col sm:flex-row gap-4 items-center">
           <Input 
-            type="date" 
+            type="month" 
             value={monthFilter}
             onChange={e => {
               setMonthFilter(e.target.value);
@@ -372,41 +304,6 @@ export default function Payslips() {
                 </div>
               </div>
 
-              {/* Dispute Section */}
-              {user?.role === 'EMPLOYEE' && (
-                <div className="mt-8 border-t border-border pt-6">
-                  {!showDisputeForm ? (
-                    <button
-                      onClick={() => setShowDisputeForm(true)}
-                      className="text-red-600 font-medium hover:text-red-800 text-sm flex items-center gap-1"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                      Report an issue / Raise Dispute
-                    </button>
-                  ) : (
-                    <div className="bg-red-50 p-4 rounded-lg border border-red-100">
-                      <label className="block text-sm font-semibold text-red-800 mb-2">Describe your dispute</label>
-                      <textarea
-                        className="w-full border border-red-200 rounded p-2 text-sm focus:ring-red-500 focus:border-red-500 outline-none"
-                        rows="3"
-                        placeholder="E.g., Overtime bonus is missing..."
-                        value={disputeReason}
-                        onChange={e => setDisputeReason(e.target.value)}
-                      ></textarea>
-                      <div className="mt-3 flex justify-end gap-2">
-                        <button onClick={() => setShowDisputeForm(false)} className="px-3 py-1 text-sm text-red-700 hover:bg-red-100 rounded">Cancel</button>
-                        <button
-                          onClick={handleRaiseDispute}
-                          disabled={submittingDispute || !disputeReason.trim()}
-                          className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
-                        >
-                          Submit Dispute
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
 
             <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-between items-center rounded-b-xl">
