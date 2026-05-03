@@ -4,6 +4,7 @@ import EmployeeDirectory from './pages/EmployeeDirectory';
 import EmployeeFormPage from './pages/EmployeeFormPage';
 import HRAttendanceView from './pages/HRAttendanceView';
 import HRLeaveQueue from './pages/HRLeaveQueue';
+import HRDisputesPage from './pages/HRDisputesPage';
 
 export default function HRRoutes() {
   return (
@@ -21,6 +22,9 @@ export default function HRRoutes() {
       
       {/* Leave Management */}
       <Route path="leaves"               element={<HRLeaveQueue />} />
+
+      {/* Disputes */}
+      <Route path="disputes"             element={<HRDisputesPage />} />
       
       <Route path="*"                    element={<Navigate to="dashboard" replace />} />
     </Routes>

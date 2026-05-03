@@ -29,6 +29,7 @@ export const navConfig = {
     { to: '/hr/employees',  label: 'Employees',  icon: User },
     { to: '/hr/attendance', label: 'Attendance', icon: Clock },
     { to: '/hr/leaves',     label: 'Time Off',   icon: CalendarDays },
+    { to: '/hr/disputes',   label: 'Disputes',   icon: AlertCircle },
   ],
   PAYROLL_OFFICER: [
     { to: '/payroll/dashboard', label: 'Dashboard',       icon: LayoutDashboard },

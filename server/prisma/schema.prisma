@@ -7,8 +7,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ============================================
@@ -76,6 +77,8 @@ enum PayslipStatus {
   DRAFT
   GENERATED
   REVISED
+  COMPUTED
+  CANCELLED
 }
 
 enum DisputeStatus {
@@ -83,6 +86,11 @@ enum DisputeStatus {
   UNDER_REVIEW
   RESOLVED
   REJECTED
+}
+
+enum DisputeRoute {
+  PAYROLL
+  HR
 }
 
 // ============================================
@@ -385,6 +393,7 @@ model PayslipDispute {
   reason     String
 
   status       DisputeStatus @default(OPEN)
+  routedTo     DisputeRoute  @default(PAYROLL)
   resolution   String?
   resolvedById String?
   resolvedBy   User?         @relation("DisputeResolver", fields: [resolvedById], references: [id])
@@ -394,5 +403,6 @@ model PayslipDispute {
   updatedAt DateTime @updatedAt
 
   @@index([status])
+  @@index([routedTo])
 }
 

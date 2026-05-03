@@ -15,16 +15,14 @@ export default function PayrollDashboard() {
 
   useEffect(() => {
     if (user?.role === 'EMPLOYEE') {
-      navigate('/payroll/payslips', { replace: true });
-    } else if (user?.role === 'HR_OFFICER') {
-      navigate('/dashboard', { replace: true });
+      navigate('/employee/payslips', { replace: true });
     }
   }, [user, navigate]);
 
   const fetchDashboard = () => {
     setLoading(true);
     setError(null);
-    api.get('/payroll/dashboard')
+    api.get('/dashboard/payroll')
       .then(res => {
         setData(res);
       })

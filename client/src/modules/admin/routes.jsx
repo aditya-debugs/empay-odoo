@@ -34,7 +34,7 @@ export default function AdminRoutes() {
       <Route path="attendance" element={<AttendanceDirectoryPage />} />
       <Route path="leaves"     element={<LeaveApprovalPage />} />
       
-      {/* Payroll */}
+      {/* Payroll — static/specific routes MUST come before dynamic :year/:month */}
       <Route path="payroll"                  element={<PayrollPage />} />
       <Route path="payroll/disputes"         element={<PayslipDisputesPage />} />
       <Route path="payroll/preview"          element={<PayrunPreviewPage />} />

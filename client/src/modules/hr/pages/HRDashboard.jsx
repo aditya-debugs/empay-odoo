@@ -139,9 +139,12 @@ export default function HRDashboard() {
               </div>
             )}
             <div className="pt-4 border-t border-gray-50">
-              <Button variant="outline" className="w-full bg-white text-gray-900 border-gray-200 hover:bg-gray-50 shadow-sm font-bold" asChild>
-                <Link to="/hr/employees/new">Add Employee</Link>
-              </Button>
+              <Link
+                to="/hr/employees/new"
+                className="flex w-full items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-900 shadow-sm hover:bg-gray-50 transition-colors"
+              >
+                Add Employee
+              </Link>
             </div>
           </Card>
         </div>

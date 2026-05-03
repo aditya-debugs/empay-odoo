@@ -1,7 +1,7 @@
 import api from './api';
 
 export const payrollService = {
-  getDashboardStats:   () => api.get('/payroll/dashboard'),
+  getDashboardStats:   () => api.get('/dashboard/payroll'),
   previewPayroll:      (month) => api.get(`/payroll/preview?month=${month}`),
   processPayroll:      (month) => api.post('/payroll/process', { month }),
   getPayslips:         (filters) => {

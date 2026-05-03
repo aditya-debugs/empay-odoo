@@ -16,14 +16,14 @@ exports.raiseDispute = async (req, res, next) => {
 
 exports.getQueue = async (req, res, next) => {
   try {
-    const result = await service.getDisputeQueue();
+    const result = await service.getDisputeQueue(req.user.role);
     res.json(result);
   } catch (e) { next(e); }
 };
 
 exports.resolve = async (req, res, next) => {
   try {
-    const result = await service.resolveDispute(req.params.id, req.user.id, req.body);
+    const result = await service.resolveDispute(req.params.id, req.user.id, req.user.role, req.body);
     res.json(result);
   } catch (e) { next(e); }
 };
