@@ -8,54 +8,18 @@ import {
   AlertCircle,
   CheckCircle2
 } from 'lucide-react';
-import { Card, Button, Avatar, Tabs, Input } from '../../../features/ui';
-
-function Select({ label, options, value, onChange, required, className = '' }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      {label && <label className="text-sm font-medium text-gray-700">{label}</label>}
-      <select
-        required={required}
-        value={value}
-        onChange={onChange}
-        className={`w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none h-10 ${className}`}
-      >
-        {options?.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
+import { Card, Button, Avatar, Tabs, Input, Select } from '../../../features/ui';
 import hrService from '../hrService';
 
 export default function HRLeaveQueue() {
-  const [activeTab, setActiveTab] = useState('queue');
   const [leaves, setLeaves] = useState([]);
-  const [allocations, setAllocations] = useState([]);
-  const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(null);
 
-  // Allocation form state
-  const [allocForm, setAllocForm] = useState({
-    employeeId: '',
-    type: 'ANNUAL',
-    year: new Date().getFullYear(),
-    totalDays: 0
-  });
-
   useEffect(() => {
-    if (activeTab === 'queue') {
-      loadQueue();
-    } else {
-      loadAllocations();
-      loadEmployees();
-    }
-  }, [activeTab]);
+    loadQueue();
+  }, []);
 
   const loadQueue = async () => {
     setLoading(true);
@@ -66,42 +30,6 @@ export default function HRLeaveQueue() {
       setError(err.message || 'Failed to load leave queue');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadAllocations = async () => {
-    setLoading(true);
-    try {
-      const data = await hrService.getAllocations();
-      setAllocations(data.allocations || data || []);
-    } catch (err) {
-      setError(err.message || 'Failed to load allocations');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadEmployees = async () => {
-    try {
-      const { records } = await hrService.listEmployees();
-      setEmployees(records || []);
-    } catch (err) {
-      console.error('Failed to load employees', err);
-    }
-  };
-
-  const handleAllocate = async (e) => {
-    e.preventDefault();
-    setSubmitting('allocate');
-    try {
-      await hrService.allocateLeave(allocForm);
-      setAllocForm({ ...allocForm, totalDays: 0 }); // reset days
-      await loadAllocations();
-      alert('Leave allocated successfully!');
-    } catch (err) {
-      alert('Failed to allocate leave: ' + err.message);
-    } finally {
-      setSubmitting(null);
     }
   };
 
@@ -120,30 +48,28 @@ export default function HRLeaveQueue() {
     }
   };
 
-  if (loading) return <div className="p-8 text-ink-muted animate-pulse">Loading leave queue...</div>;
+  if (loading)
+    return (
+      <div className="p-8 text-ink-muted animate-pulse font-medium">Loading leave queue...</div>
+    );
 
-  const pending = leaves.filter(l => l.status === 'PENDING');
-  const processed = leaves.filter(l => l.status !== 'PENDING');
-
-  const tabs = [
-    { key: 'queue', label: 'Leave Requests Queue' },
-    { key: 'allocation', label: 'Leave Balances & Allocation' }
-  ];
+  const pending = leaves.filter((l) => l.status === 'PENDING');
+  const processed = leaves.filter((l) => l.status !== 'PENDING');
 
   return (
     <div className="px-8 py-10 space-y-10 min-h-screen bg-[#F8F9FA]">
       <div className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900">Leave Management</h1>
-        <p className="text-sm text-gray-500 font-medium">Review requests and allocate leave balances</p>
+        <h1 className="text-3xl font-bold tracking-tight text-gray-900">Time Off Management</h1>
+        <p className="text-sm text-gray-500 font-medium">Review and process leave requests</p>
       </div>
 
-      <Tabs tabs={tabs} activeKey={activeTab} onChange={setActiveTab} className="border-gray-200" />
+      {error && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
+          {error}
+        </div>
+      )}
 
-      {error && <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">{error}</div>}
-
-      {activeTab === 'queue' ? (
-        <>
-          {/* Pending Requests Section */}
+      {/* Pending Requests Section */}
       <section className="space-y-4">
         <div className="flex items-center gap-2">
           <h2 className="text-lg font-bold text-gray-800">Pending Requests</h2>
@@ -151,7 +77,7 @@ export default function HRLeaveQueue() {
             {pending.length}
           </span>
         </div>
-        
+
         {pending.length === 0 ? (
           <div className="p-16 text-center text-gray-400 italic border border-dashed border-gray-300 rounded-2xl bg-white">
             No pending leave requests
@@ -159,25 +85,35 @@ export default function HRLeaveQueue() {
         ) : (
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             {pending.map((leave) => (
-              <Card key={leave.id} className="p-6 border-gray-100 shadow-sm bg-white hover:shadow-md transition-all">
+              <Card
+                key={leave.id}
+                className="p-6 border-gray-100 shadow-sm bg-white hover:shadow-md transition-all"
+              >
                 <div className="flex flex-col justify-between h-full">
                   <div>
                     <div className="flex items-center gap-4">
                       <Avatar name={leave.employee?.user?.name} className="h-12 w-12 text-lg" />
                       <div>
                         <h3 className="font-bold text-gray-900">{leave.employee?.user?.name}</h3>
-                        <p className="text-xs text-gray-500 font-medium">{leave.employee?.department || 'Engineering'}</p>
+                        <p className="text-xs text-gray-500 font-medium">
+                          {leave.employee?.department || 'Engineering'}
+                        </p>
                       </div>
                     </div>
 
                     <div className="mt-6 grid grid-cols-2 gap-4">
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <Calendar className="h-4 w-4 text-gray-400" />
-                        <span>{new Date(leave.startDate).toLocaleDateString()} - {new Date(leave.endDate).toLocaleDateString()}</span>
+                        <span>
+                          {new Date(leave.startDate).toLocaleDateString()} -{' '}
+                          {new Date(leave.endDate).toLocaleDateString()}
+                        </span>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <Clock className="h-4 w-4 text-gray-400" />
-                        <span>{leave.days} Days ({leave.type.replace('_', ' ')})</span>
+                        <span>
+                          {leave.days} Days ({leave.type.replace('_', ' ')})
+                        </span>
                       </div>
                     </div>
 
@@ -221,33 +157,33 @@ export default function HRLeaveQueue() {
         <h2 className="text-lg font-bold text-gray-800">Recently Processed</h2>
         <Card className="overflow-hidden border-border shadow-sm bg-white p-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm whitespace-nowrap">
-              <thead className="bg-surface-muted border-b border-border">
-                <tr>
-                  <th className="px-6 py-4 text-[12px] font-semibold tracking-wider text-ink-muted uppercase">Employee</th>
-                  <th className="px-6 py-4 text-[12px] font-semibold tracking-wider text-ink-muted uppercase">Dates</th>
-                  <th className="px-6 py-4 text-[12px] font-semibold tracking-wider text-ink-muted uppercase">Type</th>
-                  <th className="px-6 py-4 text-[12px] font-semibold tracking-wider text-ink-muted uppercase">Status</th>
-                  <th className="px-6 py-4 text-[12px] font-semibold tracking-wider text-ink-muted uppercase">Processed At</th>
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-white border-b border-gray-100">
+                  <th className="px-8 py-5 text-[13px] font-semibold text-gray-500">Employee</th>
+                  <th className="px-8 py-5 text-[13px] font-semibold text-gray-500">Dates</th>
+                  <th className="px-8 py-5 text-[13px] font-semibold text-gray-500">Type</th>
+                  <th className="px-8 py-5 text-[13px] font-semibold text-gray-500">Status</th>
+                  <th className="px-8 py-5 text-[13px] font-semibold text-gray-500">Processed At</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {processed.map((leave) => (
-                  <tr key={leave.id} className="hover:bg-surface-muted/30 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="font-bold text-ink">{leave.employee?.user?.name}</div>
-                      <div className="text-[11px] text-ink-muted font-medium uppercase tracking-wider">{leave.employee?.department || 'Engineering'}</div>
+                  <tr key={leave.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-8 py-5">
+                      <div className="font-bold text-gray-900">{leave.employee?.user?.name}</div>
+                      <div className="text-[11px] text-gray-500 font-medium uppercase tracking-wider">{leave.employee?.department || 'Engineering'}</div>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="text-ink font-bold">{new Date(leave.startDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - {new Date(leave.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</div>
-                      <div className="text-[11px] text-ink-muted font-medium">{leave.days} Days</div>
+                    <td className="px-8 py-5">
+                      <div className="text-gray-900 font-bold">{new Date(leave.startDate).toLocaleDateString()}</div>
+                      <div className="text-[11px] text-gray-500 font-medium">{leave.days} Days</div>
                     </td>
                     <td className="px-6 py-4 text-[13px] font-medium text-ink-muted">
                       {leave.type.replace('_', ' ')}
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wide border ${
-                        leave.status === 'APPROVED' ? 'bg-success-50 text-success-700 border-success-500/20' : 'bg-danger-50 text-danger-700 border-danger-500/20'
+                    <td className="px-8 py-5">
+                      <span className={`text-[12px] font-bold ${
+                        leave.status === 'APPROVED' ? 'text-[#198754]' : 'text-[#DC3545]'
                       }`}>
                         {leave.status}
                       </span>
@@ -315,47 +251,44 @@ export default function HRLeaveQueue() {
                   onChange={(e) => setAllocForm({ ...allocForm, totalDays: parseFloat(e.target.value) })}
                 />
               </div>
-              <Button type="submit" variant="primary" loading={submitting === 'allocate'} className="h-10">
+              <Button type="submit" loading={submitting === 'allocate'} className="bg-[#198754] hover:bg-[#157347] text-white border-none font-bold h-[42px]">
                 Allocate
               </Button>
             </form>
           </Card>
 
-          <Card className="overflow-hidden border-border shadow-sm bg-white p-0">
+          <Card className="overflow-hidden border-gray-100 shadow-sm bg-white rounded-2xl">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm whitespace-nowrap">
-                <thead className="bg-surface-muted border-b border-border">
-                  <tr>
-                    <th className="px-6 py-4 text-[12px] font-semibold tracking-wider text-ink-muted uppercase">Employee</th>
-                    <th className="px-6 py-4 text-[12px] font-semibold tracking-wider text-ink-muted uppercase">Type / Year</th>
-                    <th className="px-6 py-4 text-[12px] font-semibold tracking-wider text-ink-muted uppercase">Total Allocated</th>
-                    <th className="px-6 py-4 text-[12px] font-semibold tracking-wider text-ink-muted uppercase">Used Days</th>
-                    <th className="px-6 py-4 text-[12px] font-semibold tracking-wider text-ink-muted uppercase">Remaining</th>
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-white border-b border-gray-100">
+                    <th className="px-8 py-5 text-[13px] font-semibold text-gray-500">Employee</th>
+                    <th className="px-8 py-5 text-[13px] font-semibold text-gray-500">Type / Year</th>
+                    <th className="px-8 py-5 text-[13px] font-semibold text-gray-500">Total Allocated</th>
+                    <th className="px-8 py-5 text-[13px] font-semibold text-gray-500">Used Days</th>
+                    <th className="px-8 py-5 text-[13px] font-semibold text-gray-500">Remaining</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody className="divide-y divide-gray-50">
                   {allocations.map((alloc) => {
                     const remaining = parseFloat(alloc.totalDays) - parseFloat(alloc.usedDays);
                     return (
-                      <tr key={alloc.id} className="hover:bg-surface-muted/30 transition-colors">
-                        <td className="px-6 py-4 font-bold text-ink">{alloc.employee?.user?.name}</td>
-                        <td className="px-6 py-4">
-                          <span className="font-bold text-ink-muted">{alloc.type.replace('_', ' ')}</span>
-                          <span className="text-[11px] text-ink-soft ml-2">({alloc.year})</span>
+                      <tr key={alloc.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-8 py-5 font-bold text-gray-900">{alloc.employee?.user?.name}</td>
+                        <td className="px-8 py-5">
+                          <span className="font-bold text-gray-700">{alloc.type.replace('_', ' ')}</span>
+                          <span className="text-[11px] text-gray-500 ml-2">({alloc.year})</span>
                         </td>
-                        <td className="px-6 py-4 font-bold text-ink">{alloc.totalDays}</td>
-                        <td className="px-6 py-4 font-bold text-danger-500">{alloc.usedDays}</td>
-                        <td className="px-6 py-4 font-bold text-success-600">{remaining}</td>
+                        <td className="px-8 py-5 font-medium text-gray-600">{alloc.totalDays}</td>
+                        <td className="px-8 py-5 font-medium text-red-500">{alloc.usedDays}</td>
+                        <td className="px-8 py-5 font-bold text-green-600">{remaining}</td>
                       </tr>
                     );
                   })}
                   {allocations.length === 0 && !loading && (
                     <tr>
-                      <td colSpan="5" className="px-6 py-12 text-center text-ink-muted">
-                        <div className="flex flex-col items-center justify-center">
-                          <Calendar className="h-8 w-8 mb-2 opacity-20" />
-                          <p className="text-sm font-medium">No leave allocations found</p>
-                        </div>
+                      <td colSpan="5" className="px-8 py-20 text-center text-gray-400 italic">
+                        No leave allocations found.
                       </td>
                     </tr>
                   )}
