@@ -30,8 +30,8 @@ export default function Payslips() {
   const [toastMessage, setToastMessage] = useState(null);
 
   useEffect(() => {
-    if (user?.role === 'HR_OFFICER') {
-      navigate('/dashboard', { replace: true });
+    if (user?.role === 'EMPLOYEE') {
+      navigate('/employee/payslips', { replace: true });
     }
   }, [user, navigate]);
 
@@ -48,7 +48,7 @@ export default function Payslips() {
         url += `${url.includes('?') ? '&' : '?'}search=${encodeURIComponent(nameFilter)}`;
       }
       const res = await api.get(url);
-      setPayslips(res);
+      setPayslips(res.payslips || []);
       setPage(0);
     } catch (err) {
       setError(err.message || 'Failed to fetch payslips');

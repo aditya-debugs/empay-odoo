@@ -3,7 +3,7 @@ import { cn } from './cn';
 
 export const Select = forwardRef(function Select(
   { label, error, hint, className, id, options = [], ...rest },
-  ref,
+  ref
 ) {
   const generatedId = useId();
   const selectId = id || generatedId;
@@ -22,7 +22,7 @@ export const Select = forwardRef(function Select(
           'h-11 w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm text-ink',
           'focus:border-brand-500 focus:ring-2 focus:ring-brand-400/30 focus:outline-none transition-colors',
           error ? 'border-danger-500' : 'border-border-strong',
-          className,
+          className
         )}
         {...rest}
       >

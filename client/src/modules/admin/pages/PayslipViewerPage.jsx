@@ -22,10 +22,13 @@ export default function PayslipViewerPage() {
 
   useEffect(() => {
     Promise.all([
-      api.get(`/payslips/${id}`).then(res => ({ payslip: res })),
-      api.get('/settings').catch(() => ({})).then(res => ({ settings: res || {} }))
+      api.get(`/payslips/${id}`),
+      api.get('/settings').catch(() => ({}))
     ])
-      .then(([{ payslip }, { settings }]) => { setPayslip(payslip); setSettings(settings); })
+      .then(([payslipRes, settingsRes]) => {
+        setPayslip(payslipRes?.payslip || payslipRes);
+        setSettings(settingsRes?.settings || settingsRes || {});
+      })
       .catch((e) => setError(e.message || 'Failed to load payslip'))
       .finally(() => setLoading(false));
   }, [id]);

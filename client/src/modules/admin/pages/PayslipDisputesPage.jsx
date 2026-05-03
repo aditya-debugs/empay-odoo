@@ -78,15 +78,16 @@ export default function PayslipDisputesPage() {
               <th className="px-5 py-3">Employee</th>
               <th className="px-5 py-3">Payslip Period</th>
               <th className="px-5 py-3">Issue Reason</th>
+              <th className="px-5 py-3">Routed To</th>
               <th className="px-5 py-3">Status</th>
               <th className="px-5 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-ink-100">
             {loading ? (
-              <tr><td colSpan={5} className="px-5 py-12 text-center text-ink-muted">Loading disputes...</td></tr>
+              <tr><td colSpan={6} className="px-5 py-12 text-center text-ink-muted">Loading disputes...</td></tr>
             ) : disputes.length === 0 ? (
-              <tr><td colSpan={5} className="px-5 py-12 text-center text-ink-muted">No disputes found. Everyone is happy!</td></tr>
+              <tr><td colSpan={6} className="px-5 py-12 text-center text-ink-muted">No disputes found. Everyone is happy!</td></tr>
             ) : (
               disputes.map((dispute) => (
                 <tr key={dispute.id} className="hover:bg-surface-muted/40 transition-colors">
@@ -98,6 +99,15 @@ export default function PayslipDisputesPage() {
                   </td>
                   <td className="px-5 py-4 truncate max-w-xs" title={dispute.reason}>
                     {dispute.reason}
+                  </td>
+                  <td className="px-5 py-4">
+                    <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-bold uppercase tracking-wide ${
+                      dispute.routedTo === 'PAYROLL'
+                        ? 'bg-brand-50 text-brand-700'
+                        : 'bg-purple-50 text-purple-700'
+                    }`}>
+                      {dispute.routedTo === 'PAYROLL' ? 'Payroll Officer' : 'HR Officer'}
+                    </span>
                   </td>
                   <td className="px-5 py-4">
                     <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${

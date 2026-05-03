@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Card, Button } from '../../../features/ui';
-import { Download, AlertCircle } from 'lucide-react';
+import { Download, AlertCircle, FileText, CheckCircle } from 'lucide-react';
 import api from '../../../services/api';
 
 export default function PayslipsPage() {
@@ -12,6 +12,7 @@ export default function PayslipsPage() {
   const [selectedPayslip, setSelectedPayslip] = useState(null);
   const [disputeReason, setDisputeReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [downloadingId, setDownloadingId] = useState(null);
 
   useEffect(() => {
     loadPayslips();
@@ -21,16 +22,56 @@ export default function PayslipsPage() {
     setLoading(true);
     try {
       const [payslipsData, disputesData] = await Promise.all([
-        api.get('/payslips'),
-        api.get('/payslip-disputes').catch(() => ([]))
+        api.get('/payslips/me'),
+        api.get('/payslip-disputes/me').catch(() => ({ disputes: [] }))
       ]);
-      setPayslips(payslipsData || []);
-      setDisputes(disputesData || []);
+      setPayslips(payslipsData?.payslips || []);
+      setDisputes(disputesData?.disputes || []);
     } catch (err) {
       setError(err.message || 'Failed to load payslips');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDownload = (payslip) => {
+    setDownloadingId(payslip.id);
+    
+    // For Hackathon Demonstration: Generate a "Professional" looking virtual payslip PDF
+    // In a real app, this would be a URL to a pre-generated file on S3/Cloud Storage.
+    setTimeout(() => {
+      const content = `
+        -----------------------------------------------------
+        ${payslip.employee?.companyName || 'EmPay Organization'} - OFFICIAL PAYSLIP
+        -----------------------------------------------------
+        Period: ${payslip.month}/${payslip.year}
+        Employee: ${payslip.employee?.firstName} ${payslip.employee?.lastName}
+        
+        EARNINGS:
+        Basic Salary:       $${payslip.basicSalary}
+        Gross Salary:       $${payslip.grossSalary}
+        
+        DEDUCTIONS:
+        Total Deductions:   -$${payslip.totalDeductions}
+        
+        -----------------------------------------------------
+        NET SALARY PAYABLE: $${payslip.netSalary}
+        -----------------------------------------------------
+        Status: ${payslip.status}
+        Generated At: ${new Date(payslip.createdAt).toLocaleString()}
+      `;
+      
+      const blob = new Blob([content], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Payslip_${payslip.month}_${payslip.year}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      setDownloadingId(null);
+    }, 800);
   };
 
   const handleRaiseDispute = async (e) => {
@@ -74,19 +115,20 @@ export default function PayslipsPage() {
   if (loading) return <div className="p-8">Loading...</div>;
 
   return (
-    <div className="px-8 py-8">
-      <h1 className="text-3xl font-semibold tracking-tight">Payslips</h1>
-      <p className="mt-1 text-sm text-ink-muted">View and download your payslips</p>
+    <div className="px-8 py-8 space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-ink">Salary Payslips</h1>
+        <p className="mt-1 text-xs font-medium text-ink-soft uppercase tracking-widest">Financial Records • Official Downloads</p>
+      </div>
 
-      {error && <div className="mt-4 p-3 bg-danger-50 text-danger-700 rounded-lg text-sm">{error}</div>}
+      {error && <div className="p-3 bg-danger-50 text-danger-700 rounded-xl text-sm border border-danger-100">{error}</div>}
 
-      {/* Payslips List */}
-      <div className="mt-8">
-        <h2 className="text-lg font-semibold mb-4">Your Payslips</h2>
+      {/* Grid of Payslips - Now more professional */}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {payslips.length === 0 ? (
-          <Card className="p-8 text-center text-ink-muted">
-            No payslips available yet
-          </Card>
+          <div className="col-span-full py-20 text-center text-ink-soft italic">
+            No official payslips have been issued for your account yet.
+          </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {payslips.map((payslip) => (
@@ -106,6 +148,12 @@ export default function PayslipsPage() {
                     {payslip.status}
                   </span>
                 </div>
+                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-tight ${
+                  payslip.status === 'GENERATED' ? 'bg-success-50 text-success-600' : 'bg-warning-50 text-warning-600'
+                }`}>
+                  {payslip.status}
+                </span>
+              </div>
 
                 <div className="space-y-3 mb-4 pb-4 border-b border-ink-200">
                   <div className="flex justify-between">
@@ -126,19 +174,25 @@ export default function PayslipsPage() {
                   </div>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="pt-4 border-t border-border flex justify-between items-baseline">
+                   <span className="text-xs font-bold text-ink-muted uppercase tracking-wider">Net Payable</span>
+                   <span className="text-xl font-black text-brand-600">${payslip.netSalary?.toLocaleString()}</span>
+                </div>
+
+                <div className="flex gap-2 pt-2">
                   <Button
                     size="sm"
-                    className="flex-1"
+                    className="flex-1 text-xs font-bold"
                     leftIcon={<Download className="h-3 w-3" />}
                     onClick={() => handleDownload(payslip)}
+                    loading={downloadingId === payslip.id}
                   >
                     Download PDF
                   </Button>
                   <Button
                     size="sm"
                     variant="secondary"
-                    className="flex-1"
+                    className="flex-1 text-xs font-bold"
                     leftIcon={<AlertCircle className="h-3 w-3" />}
                     onClick={() => {
                       setSelectedPayslip(payslip);
@@ -148,28 +202,33 @@ export default function PayslipsPage() {
                     Raise Dispute
                   </Button>
                 </div>
-              </Card>
-            ))}
-          </div>
+              </div>
+            </Card>
+          ))
         )}
       </div>
 
-      {/* Disputes */}
+      {/* Disputes Section */}
       {disputes.length > 0 && (
-        <div className="mt-8">
-          <h2 className="text-lg font-semibold mb-4">Your Disputes</h2>
-          <div className="space-y-4">
+        <div className="pt-8">
+           <h2 className="text-sm font-bold uppercase tracking-widest text-ink-soft mb-4">Pending Disputes</h2>
+           <div className="space-y-3">
             {disputes.map((dispute) => (
-              <Card key={dispute.id} className="p-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="font-medium">Payslip Dispute</p>
-                    <p className="text-sm text-ink-muted mt-1">{dispute.reason}</p>
+              <Card key={dispute.id} className="p-4 border-l-4 border-l-warning-500">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-warning-50 rounded-lg">
+                      <AlertCircle className="h-4 w-4 text-warning-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-ink">Inquiry for Period {dispute.payslip?.month}/{dispute.payslip?.year}</p>
+                      <p className="text-[10px] text-ink-soft mt-0.5 italic">"{dispute.reason}"</p>
+                    </div>
                   </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  <span className={`px-2 py-1 rounded-full text-[9px] font-bold uppercase ${
                     dispute.status === 'RESOLVED' ? 'bg-success-100 text-success-700' :
                     dispute.status === 'UNDER_REVIEW' ? 'bg-warning-100 text-warning-700' :
-                    'bg-info-100 text-info-700'
+                    'bg-brand-50 text-brand-600'
                   }`}>
                     {dispute.status}
                   </span>
@@ -180,39 +239,67 @@ export default function PayslipsPage() {
         </div>
       )}
 
-      {/* Dispute Form Modal */}
+      {/* Dispute Modal */}
       {showDisputeForm && selectedPayslip && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">
-              Raise Dispute - {new Date(selectedPayslip.createdAt).toLocaleString('default', { month: 'long', year: 'numeric' })}
-            </h3>
+        <div className="fixed inset-0 bg-ink/30 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <Card className="p-6 max-w-md w-full shadow-2xl border-none">
+            <h3 className="text-lg font-bold text-ink mb-1">Raise a Dispute</h3>
+            <p className="text-xs text-ink-soft mb-6">Period: {new Date(0, selectedPayslip.month - 1).toLocaleString('default', { month: 'long' })} {selectedPayslip.year}</p>
 
-            <form onSubmit={handleRaiseDispute}>
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-2">Reason for Dispute</label>
-                <textarea
+            <form onSubmit={handleRaiseDispute} className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-ink-muted mb-2">Dispute Category</label>
+                <select
                   value={disputeReason}
                   onChange={(e) => setDisputeReason(e.target.value)}
-                  className="w-full px-3 py-2 border border-ink-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  rows="4"
-                  placeholder="Please explain the issue with this payslip..."
+                  className="w-full px-4 py-3 bg-white border border-border-strong rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 mb-3 font-semibold text-ink"
                   required
+                >
+                  <option value="" disabled>Select accurate reason...</option>
+                  <optgroup label="Financial / Payroll">
+                    <option value="Mismatched Work Hours">Mismatched Work Hours</option>
+                    <option value="Unrecorded Overtime">Unrecorded Overtime</option>
+                    <option value="Balance Disputes">Balance Disputes</option>
+                    <option value="Missing Benefits/Allowances">Missing Benefits/Allowances</option>
+                  </optgroup>
+                  <optgroup label="HR / Admin">
+                    <option value="Incorrect Leave Type">Incorrect Leave Type</option>
+                    <option value="Approval Lag">Approval Lag</option>
+                    <option value="Inaccessible History">Inaccessible History</option>
+                  </optgroup>
+                </select>
+              </div>
+
+              {disputeReason && (
+                <div className={`p-3 rounded-lg border flex items-center justify-between shadow-inner ${
+                  ['Mismatched Work Hours', 'Unrecorded Overtime', 'Balance Disputes', 'Missing Benefits/Allowances'].includes(disputeReason)
+                    ? 'bg-warning-50 border-warning-200 text-warning-800'
+                    : 'bg-brand-50 border-brand-200 text-brand-800'
+                }`}>
+                   <span className="text-[10px] font-bold uppercase tracking-widest">Auto-Routing To:</span>
+                   <span className="text-xs font-black uppercase">
+                     {['Mismatched Work Hours', 'Unrecorded Overtime', 'Balance Disputes', 'Missing Benefits/Allowances'].includes(disputeReason)
+                       ? 'Payroll Officer'
+                       : 'HR & Admin Head'}
+                   </span>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-ink-muted mb-2 mt-4">Additional Details (Optional)</label>
+                <textarea
+                  className="w-full px-4 py-3 bg-surface-muted border border-border-strong rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                  rows="3"
+                  placeholder="Provide explicit clarification to assist the reviewer..."
+                  id="disputeDetails"
                 />
               </div>
 
-              <div className="flex gap-2">
-                <Button
-                  type="submit"
-                  loading={submitting}
-                  className="flex-1"
-                >
-                  Submit Dispute
-                </Button>
-                <Button
+              <div className="flex gap-2 pt-4 border-t border-border mt-2">
+                 <Button
                   type="button"
                   variant="secondary"
-                  className="flex-1"
+                  className="flex-1 font-bold"
                   onClick={() => {
                     setShowDisputeForm(false);
                     setSelectedPayslip(null);
@@ -220,6 +307,14 @@ export default function PayslipsPage() {
                   }}
                 >
                   Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  loading={submitting}
+                  className="flex-1 font-bold shadow-lg"
+                  disabled={!disputeReason}
+                >
+                  Submit Official Dispute
                 </Button>
               </div>
             </form>

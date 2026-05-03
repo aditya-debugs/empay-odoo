@@ -31,9 +31,7 @@ export default function Disputes() {
 
   useEffect(() => {
     if (user?.role === 'EMPLOYEE') {
-      navigate('/payroll/payslips', { replace: true });
-    } else if (user?.role === 'HR_OFFICER') {
-      navigate('/dashboard', { replace: true });
+      navigate('/employee/payslips', { replace: true });
     }
   }, [user, navigate]);
 
@@ -42,7 +40,7 @@ export default function Disputes() {
     setError(null);
     try {
       const res = await api.get('/payslip-disputes');
-      setDisputes(res);
+      setDisputes(res.disputes || []);
     } catch (err) {
       setError(err.message || 'Failed to fetch disputes');
     } finally {
@@ -85,7 +83,11 @@ export default function Disputes() {
     
     setSubmitting(true);
     try {
-      await api.patch(`/payslip-disputes/${selectedDispute.id}/${activeModal}`, { note });
+      const statusMap = { resolve: 'RESOLVED', reject: 'REJECTED', reissue: 'RESOLVED' };
+      await api.patch(`/payslip-disputes/${selectedDispute.id}/resolve`, {
+        status: statusMap[activeModal],
+        resolution: note,
+      });
       setToastMessage(`Dispute ${activeModal}d successfully!`);
       closeModal();
       fetchDisputes();

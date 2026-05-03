@@ -159,33 +159,47 @@ async function getAdminDashboard() {
 }
 
 async function getPayrollDashboard() {
-  const pendingDisputes = await prisma.payslipDispute.count({
-    where: { status: 'OPEN' }
-  });
-
-  const payrollRuns = await prisma.payslip.groupBy({
-    by: ['year', 'month', 'status'],
-    _count: { _all: true },
-    where: { status: 'GENERATED' }
-  });
-
-  const totalGenerated = payrollRuns.reduce((sum, run) => sum + run._count._all, 0);
-
   const thisMonth = new Date().getMonth() + 1;
   const thisYear = new Date().getFullYear();
 
-  const currentRun = await prisma.payslip.count({
-    where: { month: thisMonth, year: thisYear, status: 'GENERATED' }
-  });
+  const [totalProcessed, totalPending, openDisputesCount, netPayoutAgg, monthlyRaw, recentDisputes] = await Promise.all([
+    prisma.payslip.count({ where: { status: 'GENERATED' } }),
+    prisma.payslip.count({ where: { status: 'DRAFT' } }),
+    prisma.payslipDispute.count({ where: { status: 'OPEN' } }),
+    prisma.payslip.aggregate({ _sum: { netSalary: true }, where: { status: 'GENERATED' } }),
+    // Group by year+month for last 6 months trend
+    prisma.payslip.groupBy({
+      by: ['year', 'month', 'status'],
+      _count: { _all: true },
+      orderBy: [{ year: 'desc' }, { month: 'desc' }],
+      take: 12,
+    }),
+    prisma.payslipDispute.findMany({
+      where: { status: 'OPEN' },
+      include: { payslip: { include: { employee: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    }),
+  ]);
+
+  // Build monthly trend: merge processed/pending counts per month
+  const trendMap = {};
+  for (const row of monthlyRaw) {
+    const key = `${row.year}-${String(row.month).padStart(2, '0')}`;
+    if (!trendMap[key]) trendMap[key] = { month: key, Processed: 0, Pending: 0 };
+    if (row.status === 'GENERATED') trendMap[key].Processed += row._count._all;
+    else trendMap[key].Pending += row._count._all;
+  }
+  const monthlyTrend = Object.values(trendMap).sort((a, b) => a.month.localeCompare(b.month));
 
   return {
-    pendingDisputes,
-    totalGenerated,
-    currentRun,
-    recentActivity: [
-      { text: `${currentRun} payslips generated for this month.` },
-      { text: `${pendingDisputes} disputes waiting for review.` }
-    ]
+    totalProcessed,
+    totalPending,
+    totalNetPayout: Number(netPayoutAgg._sum.netSalary || 0),
+    currentRun: await prisma.payslip.count({ where: { month: thisMonth, year: thisYear, status: 'GENERATED' } }),
+    openDisputesCount,
+    monthlyTrend,
+    recentDisputes,
   };
 }
 

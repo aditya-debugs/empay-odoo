@@ -113,25 +113,23 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="bg-brand-500 pb-10 min-h-screen">
+    <div className="px-8 py-10 space-y-8 min-h-screen bg-surface">
       {/* HEADER */}
-      <div className="px-8 pt-8 pb-12 text-white">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-sm text-brand-100">Good morning,</p>
-            <h1 className="mt-1 text-3xl font-semibold tracking-tight">{user?.name}</h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <button className="inline-flex items-center gap-2 rounded-full bg-brand-700 px-3 py-2 text-sm hover:bg-brand-800">
-              <Calendar className="h-4 w-4" />
-              <span>{new Date().getFullYear()}</span>
-            </button>
-            <Button variant="outline" size="md" className="bg-white">Export Data</Button>
-          </div>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-ink-muted">Good morning,</p>
+          <h1 className="mt-1 text-3xl font-bold tracking-tight text-ink">{user?.name}</h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <button className="inline-flex items-center gap-2 rounded-full bg-surface-muted px-4 py-2 text-sm font-medium hover:bg-border transition-colors">
+            <Calendar className="h-4 w-4" />
+            <span>{new Date().getFullYear()}</span>
+          </button>
+          <Button variant="primary" size="md">Export Data</Button>
         </div>
       </div>
 
-      <div className="-mt-8 space-y-4 px-6">
+      <div className="space-y-6">
         {/* STAT CARDS */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           {statsList.map((s) => <StatCard key={s.label} {...s} />)}
