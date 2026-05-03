@@ -208,9 +208,8 @@ export default function HRLeaveQueue() {
           </div>
         </Card>
       </section>
-      </>
-      ) : (
-        <div className="space-y-8">
+
+      <div className="space-y-8">
           <Card className="p-6 bg-white border-gray-100 rounded-2xl shadow-sm">
             <h2 className="text-lg font-bold text-gray-800 mb-4">Allocate Leave Balance</h2>
             <form onSubmit={handleAllocate} className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
@@ -297,7 +296,6 @@ export default function HRLeaveQueue() {
             </div>
           </Card>
         </div>
-      )}
     </div>
   );
 }

@@ -208,92 +208,15 @@ export default function HRDashboard() {
                       <Button size="sm" variant="ghost" className="text-red-500 hover:bg-red-50 font-bold">Reject</Button>
                       <Button size="sm" className="bg-[#198754] hover:bg-[#157347] text-white border-none font-bold px-4">Approve</Button>
                     </div>
-                    {leaves.length > 0 && (
-                      <div className="flex flex-col items-center gap-1 mt-1">
-                        <div
-                          className="w-3 h-3 rounded-full transition-all shadow-sm"
-                          style={{
-                            backgroundColor: `rgba(34, 197, 94, ${Math.max(leaveIntensity, 0.2)})`,
-                          }}
-                          title={`${leaves.length} employee(s) on leave`}
-                        />
-                        <span className="text-[10px] font-semibold text-gray-600">
-                          {leaves.length}
-                        </span>
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="mt-6">
-              {selectedDate ? (
-                <div>
-                  <h3 className="font-bold text-gray-900 text-base mb-4 pb-3 border-b border-gray-100">
-                    📅 Leaves on{' '}
-                    {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', {
-                      weekday: 'long',
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                    })}
-                  </h3>
-                  <div className="space-y-3">
-                    {(leavesByDate[selectedDate] || []).map((l) => (
-                      <div
-                        key={l.id}
-                        className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-transparent rounded-lg border border-green-100 hover:border-green-300 transition-all"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Avatar name={l.employee?.user?.name} className="h-10 w-10" />
-                          <div>
-                            <div className="font-bold text-gray-900">{l.employee?.user?.name}</div>
-                            <div className="text-xs text-gray-600">
-                              <span className="font-semibold text-green-700">
-                                {l.type.replace('_', ' ')}
-                              </span>{' '}
-                              • <span>{l.days} days</span>
-                            </div>
-                            <div className="text-xs text-gray-500 italic">{l.status}</div>
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          {l.status === 'PENDING' && (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="text-red-500"
-                                onClick={() => handleStatusUpdate(l.id, 'REJECTED')}
-                              >
-                                Reject
-                              </Button>
-                              <Button
-                                size="sm"
-                                className="bg-[#198754] hover:bg-[#157347] text-white"
-                                onClick={() => handleStatusUpdate(l.id, 'APPROVED')}
-                              >
-                                Approve
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                    {(leavesByDate[selectedDate] || []).length === 0 && (
-                      <div className="py-8 text-center text-sm text-gray-400 italic">
-                        ✓ No leaves on this date
-                      </div>
-                    )}
                   </div>
-                </div>
-              ) : (
-                <div className="py-8 text-center text-sm text-gray-400 italic font-medium">
-                  👆 Select a date to view leaves
-                </div>
-              )}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-12 text-center">
+                <Calendar className="h-12 w-12 text-gray-100 mx-auto mb-4" />
+                <p className="text-gray-400 italic font-medium">No pending leave requests</p>
+              </div>
+            )}
           </Card>
         </div>
 
