@@ -7,36 +7,67 @@ export default function Sidebar({ role }) {
   const items = navConfig[role] || [];
 
   return (
-    <aside className="flex h-screen w-64 shrink-0 flex-col bg-brand-500 text-brand-50">
-      <div className="px-6 py-6">
-        <Logo mono size="md" />
-        <div className="mt-1 text-xs uppercase tracking-wider text-brand-200">
-          {roleLabels[role]}
+    <aside className="flex h-screen w-64 shrink-0 flex-col" style={{ background: 'linear-gradient(180deg, #0F4C3A 0%, #0A3228 100%)' }}>
+      {/* Logo area */}
+      <div className="px-5 pt-6 pb-4">
+        <div className="flex items-center gap-3 px-1">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 shadow-inner">
+            <span className="text-base font-black text-white leading-none">E</span>
+          </div>
+          <div>
+            <div className="text-[15px] font-bold text-white tracking-tight leading-none">EmPay</div>
+            <div className="text-[10px] font-semibold uppercase tracking-widest text-white/40 mt-0.5">
+              {roleLabels[role]}
+            </div>
+          </div>
         </div>
       </div>
 
-      <nav className="flex-1 space-y-1 px-3">
+      {/* Divider */}
+      <div className="mx-5 mb-3 h-px bg-white/8" />
+
+      {/* Nav section label */}
+      <div className="px-6 mb-2">
+        <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-white/30">Navigation</span>
+      </div>
+
+      {/* Nav items */}
+      <nav className="flex-1 space-y-0.5 px-3 overflow-y-auto no-scrollbar">
         {items.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}
             className={({ isActive }) =>
               cn(
-                'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors',
+                'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150',
                 isActive
-                  ? 'bg-brand-700 text-white'
-                  : 'text-brand-100 hover:bg-brand-600 hover:text-white',
+                  ? 'bg-white/12 text-white shadow-sm'
+                  : 'text-white/60 hover:bg-white/7 hover:text-white/90',
               )
             }
           >
-            <Icon className="h-4 w-4" />
-            <span>{label}</span>
+            {({ isActive }) => (
+              <>
+                {isActive && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full bg-accent-400" />
+                )}
+                <div className={cn(
+                  'flex h-7 w-7 items-center justify-center rounded-lg transition-all',
+                  isActive ? 'bg-accent-500/20 text-accent-300' : 'text-white/50 group-hover:text-white/80'
+                )}>
+                  <Icon className="h-[15px] w-[15px]" />
+                </div>
+                <span className="font-medium leading-none">{label}</span>
+              </>
+            )}
           </NavLink>
         ))}
       </nav>
 
-      <div className="px-6 py-4 text-xs text-brand-200">
-        EmPay v0.1
+      {/* Footer */}
+      <div className="mx-5 mt-2 mb-5 rounded-xl bg-white/5 border border-white/8 px-4 py-3">
+        <div className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Version</div>
+        <div className="text-xs font-semibold text-white/50 mt-0.5">EmPay v0.1.0</div>
       </div>
     </aside>
   );

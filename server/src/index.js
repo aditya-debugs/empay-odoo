@@ -11,7 +11,10 @@ const path = require('path');
 const app = express();
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
-app.use(cors({ origin: env.clientUrl, credentials: true }));
+const corsOrigin = env.nodeEnv === 'development'
+  ? (origin, cb) => cb(null, true)  // allow any origin in dev (Vite port changes on restart)
+  : env.clientUrl;
+app.use(cors({ origin: corsOrigin, credentials: true }));
 app.use(express.json());
 app.use('/uploads', express.static('uploads'));
 

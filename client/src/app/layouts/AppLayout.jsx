@@ -10,7 +10,7 @@ export default function AppLayout({ children }) {
       <Sidebar role={user?.role} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <TopBar />
-        <main className="flex-1 overflow-y-auto">{children}</main>
+        <main className="flex-1 overflow-y-auto animate-fade-in">{children}</main>
       </div>
     </div>
   );

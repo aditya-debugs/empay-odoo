@@ -131,8 +131,13 @@ async function listRuns() {
     by: ['year', 'month', 'version'],
     _count: { _all: true },
     _sum: { grossSalary: true, totalDeductions: true, netSalary: true },
-    orderBy: [{ year: 'desc' }, { month: 'desc' }, { version: 'desc' }],
   });
+  // Sort in-memory: newest first
+  grouped.sort((a, b) =>
+    b.year !== a.year ? b.year - a.year :
+    b.month !== a.month ? b.month - a.month :
+    b.version - a.version
+  );
   return grouped.map((g) => ({
     month: g.month,
     year: g.year,

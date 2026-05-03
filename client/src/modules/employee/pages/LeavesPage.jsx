@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Card, Button, Input } from '../../../features/ui';
+import { Card, Button, Input, DateInput } from '../../../features/ui';
 import { Calendar, Plus, FileText, CheckCircle, Clock, AlertCircle, Camera, Search } from 'lucide-react';
 import api from '../../../services/api';
 
@@ -232,18 +232,16 @@ export default function LeavesPage() {
                   <option value="CASUAL_LEAVE">Casual Leave</option>
                 </select>
               </div>
-              <Input
+              <DateInput
                 label="Start Date"
                 name="startDate"
-                type="date"
                 value={formData.startDate}
                 onChange={handleInputChange}
                 required
               />
-              <Input
+              <DateInput
                 label="End Date"
                 name="endDate"
-                type="date"
                 value={formData.endDate}
                 onChange={handleInputChange}
                 required
@@ -382,3 +380,6 @@ export default function LeavesPage() {
     </div>
   );
 }
+
+
+

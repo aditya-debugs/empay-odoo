@@ -3,14 +3,13 @@ import {
   Search, 
   ChevronLeft, 
   ChevronRight, 
-  Calendar as CalendarIcon, 
   CheckCircle2, 
   XCircle,
   AlertCircle,
   MessageSquare,
   Clock
 } from 'lucide-react';
-import { Card, Button, Input, Avatar, Tabs } from '../../../features/ui';
+import { Card, Button, Input, Avatar, Tabs, DateInput } from '../../../features/ui';
 import hrService from '../hrService';
 
 export default function HRAttendanceView() {
@@ -93,41 +92,37 @@ export default function HRAttendanceView() {
   return (
     <div className="px-8 py-10 space-y-8 min-h-screen bg-[#F8F9FA]">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900">Attendance</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-ink">Attendance</h1>
         <div className="relative w-96">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-soft" />
           <Input 
             placeholder="Search employees, requests, payslips..." 
-            className="pl-10 h-10 bg-gray-100 border-none rounded-full"
+            className="pl-10 h-10 bg-surface-muted border-none rounded-full"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
       </div>
 
-      <Tabs tabs={tabs} activeKey={activeTab} onChange={setActiveTab} className="border-gray-200" />
+      <Tabs tabs={tabs} activeKey={activeTab} onChange={setActiveTab} className="border-border" />
 
       {activeTab === 'monitor' ? (
         <div className="space-y-6">
           <div className="flex items-center gap-4">
-            <div className="flex border border-gray-200 rounded-lg overflow-hidden bg-white">
-              <button onClick={handlePrevDay} className="p-2 hover:bg-gray-50 border-r border-gray-200" title="Previous Day"><ChevronLeft className="h-5 w-5 text-gray-600" /></button>
-              <button onClick={handleNextDay} className="p-2 hover:bg-gray-50" title="Next Day"><ChevronRight className="h-5 w-5 text-gray-600" /></button>
+            <div className="flex border border-border rounded-lg overflow-hidden bg-white">
+              <button onClick={handlePrevDay} className="p-2 hover:bg-surface-muted border-r border-border" title="Previous Day"><ChevronLeft className="h-5 w-5 text-ink-muted" /></button>
+              <button onClick={handleNextDay} className="p-2 hover:bg-surface-muted" title="Next Day"><ChevronRight className="h-5 w-5 text-ink-muted" /></button>
             </div>
             
-            <div className="relative">
-              <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input 
-                type="date" 
-                className="pl-10 w-48 border-gray-200 font-bold text-gray-700" 
-                value={date} 
-                onChange={(e) => setDate(e.target.value)} 
-              />
-            </div>
+            <DateInput
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-48"
+            />
           </div>
 
           <div className="text-center py-4">
-            <h2 className="text-lg font-bold text-gray-800">
+            <h2 className="text-lg font-bold text-ink">
               {new Date(date).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}
             </h2>
           </div>
@@ -206,7 +201,7 @@ export default function HRAttendanceView() {
       ) : (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-gray-800">Pending Regularizations</h2>
+            <h2 className="text-lg font-bold text-ink">Pending Regularizations</h2>
             <Button variant="ghost" size="sm" onClick={fetchRegularizationQueue} className="text-blue-600 font-bold">
               Refresh Queue
             </Button>
@@ -219,16 +214,16 @@ export default function HRAttendanceView() {
               regQueue
                 .filter(reg => reg.attendance.employee.user.name.toLowerCase().includes(search.toLowerCase()))
                 .map(reg => (
-                  <Card key={reg.id} className="p-6 border-gray-100 shadow-sm bg-white rounded-2xl hover:shadow-md transition-all">
+                  <Card key={reg.id} className="p-6 border-border shadow-sm bg-white rounded-2xl hover:shadow-md transition-all">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                       <div className="flex items-start gap-4">
                         <Avatar name={reg.attendance.employee.user.name} className="h-12 w-12" />
                         <div>
-                          <h3 className="font-bold text-gray-900">{reg.attendance.employee.user.name}</h3>
+                          <h3 className="font-bold text-ink">{reg.attendance.employee.user.name}</h3>
                           <p className="text-sm font-bold text-blue-600 mt-1">
                             {new Date(reg.attendance.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                           </p>
-                          <p className="mt-3 text-sm text-gray-600 italic bg-gray-50 p-4 rounded-xl border border-gray-100 shadow-inner">
+                          <p className="mt-3 text-sm text-ink-muted italic bg-surface-muted p-4 rounded-xl border border-border shadow-inner">
                             "{reg.reason}"
                           </p>
                         </div>
@@ -253,9 +248,9 @@ export default function HRAttendanceView() {
                   </Card>
                 ))
             ) : (
-              <Card className="p-20 text-center text-gray-400 italic bg-white rounded-2xl border-dashed border-gray-200">
+              <Card className="p-20 text-center text-ink-soft italic bg-white rounded-2xl border-dashed border-border">
                 <CheckCircle2 className="h-12 w-12 mx-auto mb-4 opacity-20 text-green-500" />
-                <h3 className="text-lg font-bold text-gray-900 not-italic">All caught up!</h3>
+                <h3 className="text-lg font-bold text-ink not-italic">All caught up!</h3>
                 <p className="mt-1">No pending regularization requests found.</p>
               </Card>
             )}
@@ -266,3 +261,6 @@ export default function HRAttendanceView() {
     </div>
   );
 }
+
+
+

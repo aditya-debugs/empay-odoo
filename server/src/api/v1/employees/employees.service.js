@@ -67,6 +67,8 @@ exports.updateOwnProfile = async (userId, data) => {
       personalEmail: data.personalEmail ?? user.employee.personalEmail,
       personalPhone: data.personalPhone ?? user.employee.personalPhone,
       dob:           data.dob ? new Date(data.dob) : user.employee.dob,
+      pan:           data.pan           ?? user.employee.pan,
+      aadhaar:       data.aadhaar       ?? user.employee.aadhaar,
       // Career & Bio
       skills:        data.skills        ?? user.employee.skills,
       certificates:  data.certificates  ?? user.employee.certificates,

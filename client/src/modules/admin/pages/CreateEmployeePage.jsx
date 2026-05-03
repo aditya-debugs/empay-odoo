@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, User as UserIcon, Mail, Phone, Calendar,
+  ArrowLeft, User as UserIcon, Mail, Phone,
   Building2, Briefcase, IndianRupee, Landmark, ShieldCheck,
 } from 'lucide-react';
-import { Card, Input, Button } from '../../../features/ui';
+import { Card, Input, Button, DateInput } from '../../../features/ui';
 import { useAuth } from '../../../features/auth/AuthContext';
 import {
   DEPARTMENTS, ALL_ROLES, EMPLOYEE_ONLY_ROLE, EMPLOYMENT_TYPES,
@@ -197,7 +197,7 @@ export default function CreateEmployeePage({ mode = 'employee' }) {
           </div>
           <Input label="First Name"     value={form.firstName}     onChange={setEv('firstName')}     required />
           <Input label="Last Name"      value={form.lastName}      onChange={setEv('lastName')}      required />
-          <Input label="Date of Birth"  type="date" value={form.dob} onChange={setEv('dob')} />
+          <DateInput label="Date of Birth" value={form.dob} onChange={setEv('dob')} />
           <Select label="Gender" value={form.gender} onChange={set('gender')}
             options={[
               { value: 'MALE', label: 'Male' },
@@ -213,7 +213,7 @@ export default function CreateEmployeePage({ mode = 'employee' }) {
           <Input label="Work Email" type="email" leftIcon={<Mail className="h-4 w-4" />} value={form.workEmail} onChange={setEv('workEmail')} required />
           <Select label="Department" value={form.department} onChange={set('department')} options={DEPARTMENTS} required />
           <Input label="Designation / Job Title" leftIcon={<Building2 className="h-4 w-4" />} value={form.position} onChange={setEv('position')} required />
-          <Input label="Date of Joining" type="date" leftIcon={<Calendar className="h-4 w-4" />} value={form.joinDate} onChange={setEv('joinDate')} required />
+          <DateInput label="Date of Joining" value={form.joinDate} onChange={setEv('joinDate')} required />
           <Select label="Employment Type" value={form.employmentType} onChange={set('employmentType')} options={EMPLOYMENT_TYPES} required />
           {roleOptions.length > 1 ? (
             <Select label="Role" value={form.role} onChange={set('role')} options={roleOptions} required />
@@ -290,3 +290,6 @@ function CredentialTile({ label, value }) {
     </div>
   );
 }
+
+
+

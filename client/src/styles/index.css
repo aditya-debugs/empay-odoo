@@ -1,53 +1,78 @@
 @import "tailwindcss";
 
 /* ============================================
-   EmPay — Design Tokens
-   Brand: deep emerald (matches HRMS template)
+   EmPay — Design Tokens v2
+   Brand: deep emerald — premium HRMS look
    ============================================ */
 
 @theme {
   /* Brand greens */
-  --color-brand-50:  #E8F1ED;
-  --color-brand-100: #C6DDD0;
-  --color-brand-200: #9CC2AE;
-  --color-brand-300: #6FA487;
-  --color-brand-400: #3F7D5F;
-  --color-brand-500: #0F4C3A;  /* main brand — header / sidebar bg */
-  --color-brand-600: #0C402F;
-  --color-brand-700: #0A3829;
-  --color-brand-800: #06291E;
-  --color-brand-900: #051C16;
+  --color-brand-50:  #EDFAF3;
+  --color-brand-100: #C5EFDA;
+  --color-brand-200: #8DDDB9;
+  --color-brand-300: #52C994;
+  --color-brand-400: #27B374;
+  --color-brand-500: #0F4C3A;  /* sidebar / primary */
+  --color-brand-600: #0C4032;
+  --color-brand-700: #09342A;
+  --color-brand-800: #062820;
+  --color-brand-900: #031C15;
+
+  /* Accent — teal highlight for interactive elements */
+  --color-accent-50:  #E8FAF6;
+  --color-accent-100: #B6EEDF;
+  --color-accent-200: #7DE0C8;
+  --color-accent-300: #3DCDB0;
+  --color-accent-400: #1AB99C;
+  --color-accent-500: #0DA58A;
+  --color-accent-600: #0A8A73;
 
   /* Surface / neutrals */
-  --color-surface:        #F7F8F7;  /* app background */
-  --color-surface-card:   #FFFFFF;  /* card bg */
-  --color-surface-muted:  #F1F4F2;  /* tint background (icon wells) */
-  --color-border:         #E5E9E7;
-  --color-border-strong:  #CDD4D0;
+  --color-surface:        #F5F7F6;
+  --color-surface-card:   #FFFFFF;
+  --color-surface-muted:  #EFF2F0;
+  --color-surface-hover:  #E8EDE9;
+  --color-border:         #E2E8E5;
+  --color-border-strong:  #C9D3CE;
 
   /* Text */
-  --color-ink:        #0F1A14;
-  --color-ink-muted:  #5A6B62;
-  --color-ink-soft:   #8A9991;
+  --color-ink:        #0D1A13;
+  --color-ink-muted:  #526058;
+  --color-ink-soft:   #8EA09A;
 
-  /* Status (used in stat pills, badges) */
-  --color-success-50:  #E6F5EC;
-  --color-success-500: #1F9D55;
-  --color-success-700: #0F6F38;
+  /* Status */
+  --color-success-50:  #E3F7ED;
+  --color-success-100: #AEEACC;
+  --color-success-500: #12A44F;
+  --color-success-600: #0D8C42;
+  --color-success-700: #096D34;
 
-  --color-danger-50:   #FCEAEA;
-  --color-danger-500:  #D93838;
-  --color-danger-700:  #A52525;
+  --color-danger-50:   #FEF0F0;
+  --color-danger-100:  #FBCFCF;
+  --color-danger-500:  #E03131;
+  --color-danger-600:  #C12929;
+  --color-danger-700:  #9A2020;
 
-  --color-warning-50:  #FFF4E0;
-  --color-warning-500: #E89A1B;
+  --color-warning-50:  #FFF8EC;
+  --color-warning-100: #FFE9B7;
+  --color-warning-500: #F0971A;
+  --color-warning-600: #D17F0F;
+
+  --color-info-50:  #EFF6FF;
+  --color-info-500: #3B82F6;
+  --color-info-600: #2563EB;
 
   /* Typography */
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
 
   /* Radii */
-  --radius-card: 1rem;
+  --radius-card: 0.875rem;
   --radius-pill: 9999px;
+
+  /* Shadows */
+  --shadow-card:   0 1px 3px rgba(13,26,19,0.06), 0 1px 2px rgba(13,26,19,0.04);
+  --shadow-raised: 0 4px 12px rgba(13,26,19,0.08), 0 2px 4px rgba(13,26,19,0.05);
+  --shadow-float:  0 8px 24px rgba(13,26,19,0.12), 0 4px 8px rgba(13,26,19,0.06);
 }
 
 /* Base */
@@ -61,8 +86,47 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
 }
 
-/* Hide scrollbars in attendance heatmap-like overflow areas */
+/* ── Scrollbar styling ──────────────────────── */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border-strong); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-ink-soft); }
+
+/* ── Animation utilities ───────────────────── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.animate-fade-up   { animation: fade-up  0.25s ease both; }
+.animate-fade-in   { animation: fade-in  0.2s  ease both; }
+.animate-scale-in  { animation: scale-in 0.2s  ease both; }
+
+/* Staggered children */
+.stagger > *:nth-child(1) { animation-delay: 0ms; }
+.stagger > *:nth-child(2) { animation-delay: 50ms; }
+.stagger > *:nth-child(3) { animation-delay: 100ms; }
+.stagger > *:nth-child(4) { animation-delay: 150ms; }
+
+/* ── Common utility patterns ───────────────── */
+.card-hover {
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.card-hover:hover {
+  box-shadow: var(--shadow-raised);
+  transform: translateY(-1px);
+}

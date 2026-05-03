@@ -11,7 +11,7 @@ export const Select = forwardRef(function Select(
   return (
     <div className="flex flex-col gap-1.5">
       {label && (
-        <label htmlFor={selectId} className="text-sm font-medium text-ink">
+        <label htmlFor={selectId} className="text-[13px] font-medium text-ink-muted">
           {label}
         </label>
       )}
@@ -19,8 +19,9 @@ export const Select = forwardRef(function Select(
         ref={ref}
         id={selectId}
         className={cn(
-          'h-11 w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm text-ink',
-          'focus:border-brand-500 focus:ring-2 focus:ring-brand-400/30 focus:outline-none transition-colors',
+          'h-10 w-full rounded-lg border bg-white px-3 py-2 text-sm text-ink appearance-none',
+          'focus:border-brand-400 focus:ring-2 focus:ring-brand-500/15 focus:outline-none transition-all duration-150',
+          'hover:border-border-strong/80',
           error ? 'border-danger-500' : 'border-border-strong',
           className
         )}

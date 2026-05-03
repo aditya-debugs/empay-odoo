@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Card, Button } from '../../../features/ui';
-import { Download, AlertCircle, FileText, CheckCircle } from 'lucide-react';
+import { Download, AlertCircle, FileText } from 'lucide-react';
 import api from '../../../services/api';
+import { downloadPayslipPdf } from '../../../utils/payslipPdf';
 
 export default function PayslipsPage() {
   const [payslips, setPayslips] = useState([]);
@@ -36,42 +37,11 @@ export default function PayslipsPage() {
 
   const handleDownload = (payslip) => {
     setDownloadingId(payslip.id);
-    
-    // For Hackathon Demonstration: Generate a "Professional" looking virtual payslip PDF
-    // In a real app, this would be a URL to a pre-generated file on S3/Cloud Storage.
-    setTimeout(() => {
-      const content = `
-        -----------------------------------------------------
-        ${payslip.employee?.companyName || 'EmPay Organization'} - OFFICIAL PAYSLIP
-        -----------------------------------------------------
-        Period: ${payslip.month}/${payslip.year}
-        Employee: ${payslip.employee?.firstName} ${payslip.employee?.lastName}
-        
-        EARNINGS:
-        Basic Salary:       $${payslip.basicSalary}
-        Gross Salary:       $${payslip.grossSalary}
-        
-        DEDUCTIONS:
-        Total Deductions:   -$${payslip.totalDeductions}
-        
-        -----------------------------------------------------
-        NET SALARY PAYABLE: $${payslip.netSalary}
-        -----------------------------------------------------
-        Status: ${payslip.status}
-        Generated At: ${new Date(payslip.createdAt).toLocaleString()}
-      `;
-      
-      const blob = new Blob([content], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Payslip_${payslip.month}_${payslip.year}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      setDownloadingId(null);
-    }, 800);
+    try {
+      downloadPayslipPdf(payslip);
+    } finally {
+      setTimeout(() => setDownloadingId(null), 800);
+    }
   };
 
   const handleRaiseDispute = async (e) => {
@@ -133,17 +103,17 @@ export default function PayslipsPage() {
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs">
                     <span className="text-ink-soft">Gross Earnings</span>
-                    <span className="font-bold text-ink">${payslip.grossSalary?.toLocaleString()}</span>
+                    <span className="font-bold text-ink">₹{Number(payslip.grossSalary || 0).toLocaleString('en-IN')}</span>
                   </div>
                   <div className="flex justify-between text-xs text-danger-600/80">
                     <span>Total Deductions</span>
-                    <span className="font-bold">-${payslip.totalDeductions?.toLocaleString()}</span>
+                    <span className="font-bold">-₹{Number(payslip.totalDeductions || 0).toLocaleString('en-IN')}</span>
                   </div>
                 </div>
 
                 <div className="pt-4 border-t border-border flex justify-between items-baseline">
                    <span className="text-xs font-bold text-ink-muted uppercase tracking-wider">Net Payable</span>
-                   <span className="text-xl font-black text-brand-600">${payslip.netSalary?.toLocaleString()}</span>
+                   <span className="text-xl font-black text-brand-600">₹{Number(payslip.netSalary || 0).toLocaleString('en-IN')}</span>
                 </div>
 
                 <div className="flex gap-2 pt-2">
@@ -291,3 +261,6 @@ export default function PayslipsPage() {
     </div>
   );
 }
+
+
+

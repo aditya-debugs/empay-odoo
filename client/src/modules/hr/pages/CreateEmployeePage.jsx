@@ -5,14 +5,13 @@ import {
   User as UserIcon,
   Mail,
   Phone,
-  Calendar,
   Building2,
   Briefcase,
   IndianRupee,
   Landmark,
   ShieldCheck,
 } from 'lucide-react';
-import { Card, Input, Button } from '../../../features/ui';
+import { Card, Input, Button, DateInput } from '../../../features/ui';
 import { useAuth } from '../../../features/auth/AuthContext';
 import {
   DEPARTMENTS,
@@ -268,7 +267,7 @@ export default function CreateEmployeePage() {
           </div>
           <Input label="First Name" value={form.firstName} onChange={setEv('firstName')} required />
           <Input label="Last Name" value={form.lastName} onChange={setEv('lastName')} required />
-          <Input label="Date of Birth" type="date" value={form.dob} onChange={setEv('dob')} />
+          <DateInput label="Date of Birth" value={form.dob} onChange={setEv('dob')} />
           <Select
             label="Gender"
             value={form.gender}
@@ -318,14 +317,7 @@ export default function CreateEmployeePage() {
             onChange={setEv('position')}
             required
           />
-          <Input
-            label="Date of Joining"
-            type="date"
-            leftIcon={<Calendar className="h-4 w-4" />}
-            value={form.joinDate}
-            onChange={setEv('joinDate')}
-            required
-          />
+          <DateInput label="Date of Joining" value={form.joinDate} onChange={setEv('joinDate')} required />
           <Select
             label="Employment Type"
             value={form.employmentType}
@@ -433,3 +425,6 @@ export default function CreateEmployeePage() {
     </div>
   );
 }
+
+
+

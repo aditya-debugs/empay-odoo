@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Users, Calendar, CheckCircle2, AlertCircle, ArrowRight, UserPlus } from 'lucide-react';
+import { Users, Calendar, CheckCircle2, AlertCircle, ArrowRight, UserPlus, Check, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Card, Button, Avatar } from '../../../features/ui';
 import hrService from '../hrService';
@@ -112,158 +112,157 @@ export default function HRDashboard() {
     }
   };
 
+  const attendancePct = stats.totalEmployees
+    ? Math.round((stats.presentToday / stats.totalEmployees) * 100)
+    : 0;
+
   return (
-    <div className="min-h-screen bg-[#F8F9FA] px-8 py-10 space-y-10">
-      <div className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900">HR Dashboard</h1>
-        <p className="text-sm text-gray-500 font-medium">Overview of workforce and operations.</p>
+    <div className="min-h-screen bg-surface px-7 py-8 space-y-7">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-ink">HR Dashboard</h1>
+        <p className="mt-0.5 text-sm text-ink-muted">Overview of workforce and operations.</p>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 stagger">
         <StatCard
-          icon={<Users className="h-5 w-5 text-blue-500" />}
+          icon={<Users className="h-5 w-5 text-brand-500" />}
           label="Total Employees"
           value={stats.totalEmployees}
-          subtext="ACTIVE IN SYSTEM"
-          bgColor="bg-blue-50"
+          subtext="Active in system"
+          iconBg="bg-brand-50"
         />
         <StatCard
-          icon={<CheckCircle2 className="h-5 w-5 text-[#198754]" />}
+          icon={<CheckCircle2 className="h-5 w-5 text-success-500" />}
           label="Present Today"
           value={stats.presentToday}
-          subtext={`${stats.totalEmployees ? ((stats.presentToday / stats.totalEmployees) * 100).toFixed(0) : 0}% ATTENDANCE`}
-          bgColor="bg-green-50"
+          subtext={`${attendancePct}% attendance rate`}
+          iconBg="bg-success-50"
         />
         <StatCard
-          icon={<AlertCircle className="h-5 w-5 text-red-500" />}
+          icon={<AlertCircle className="h-5 w-5 text-danger-500" />}
           label="Absent Today"
           value={stats.absentToday}
-          subtext="UNACCOUNTED FOR"
-          bgColor="bg-red-50"
+          subtext="Unaccounted"
+          iconBg="bg-danger-50"
         />
         <StatCard
-          icon={<Calendar className="h-5 w-5 text-orange-500" />}
+          icon={<Calendar className="h-5 w-5 text-warning-500" />}
           label="Pending Leaves"
           value={stats.pendingLeavesCount}
-          subtext="REQUESTS AWAITING REVIEW"
-          bgColor="bg-orange-50"
+          subtext="Awaiting review"
+          iconBg="bg-warning-50"
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Upcoming Leaves Calendar (replaces previous Leave Requests queue) */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="flex items-center justify-between px-1">
-            <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-gray-400" />
-              Upcoming Leaves (Calendar)
-            </h2>
-            <div className="flex items-center gap-3">
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() =>
-                  setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))
-                }
-              >
-                Prev
-              </Button>
-              <div className="text-sm font-semibold">
-                {calendarMonth.toLocaleString(undefined, { month: 'long', year: 'numeric' })}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Leave Queue */}
+        <div className="lg:col-span-2">
+          <Card className="overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <div>
+                <h2 className="text-[14px] font-semibold text-ink">Leave Requests</h2>
+                <p className="text-xs text-ink-muted mt-0.5">{pendingLeaves.length} pending approval</p>
               </div>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() =>
-                  setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))
-                }
-              >
-                Next
-              </Button>
               <Link
                 to="/hr/leaves"
-                className="text-sm font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors"
+                className="flex items-center gap-1 text-xs font-semibold text-brand-500 hover:text-brand-700 transition-colors"
               >
-                View all <ArrowRight className="h-3.5 w-3.5" />
+                View all <ArrowRight className="h-3 w-3" />
               </Link>
             </div>
-          </div>
-          
-          <Card className="min-h-[300px] flex flex-col justify-center border-gray-100 shadow-sm bg-white rounded-2xl overflow-hidden">
+
             {pendingLeaves.length > 0 ? (
-              <div className="divide-y divide-gray-50 h-full">
+              <div className="divide-y divide-border">
                 {pendingLeaves.map(leave => (
-                  <div key={leave.id} className="p-5 flex items-center justify-between hover:bg-gray-50 transition-colors group">
-                    <div className="flex items-center gap-4">
-                      <Avatar name={leave.employee.user.name} className="h-10 w-10 font-bold" />
-                      <div>
-                        <p className="font-bold text-gray-900">{leave.employee.user.name}</p>
-                        <p className="text-xs text-gray-500 font-medium">
-                          {leave.type.replace('_', ' ')} • <span className="text-blue-600">{leave.days} days</span>
+                  <div key={leave.id} className="flex items-center justify-between gap-4 px-5 py-3.5 hover:bg-surface-muted/30 transition-colors">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Avatar name={leave.employee.user.name} size="md" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-ink truncate">{leave.employee.user.name}</p>
+                        <p className="text-xs text-ink-muted truncate">
+                          {leave.type.replace(/_/g, ' ')}
+                          <span className="mx-1.5 text-border-strong">•</span>
+                          <span className="font-medium text-brand-500">{leave.days} days</span>
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Button size="sm" variant="ghost" className="text-red-500 hover:bg-red-50 font-bold">Reject</Button>
-                      <Button size="sm" className="bg-[#198754] hover:bg-[#157347] text-white border-none font-bold px-4">Approve</Button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => handleStatusUpdate(leave.id, 'REJECTED')}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-border text-ink-muted hover:border-danger-200 hover:bg-danger-50 hover:text-danger-500 transition-all"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleStatusUpdate(leave.id, 'APPROVED')}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg bg-success-500 text-white hover:bg-success-600 transition-colors shadow-sm"
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="p-12 text-center">
-                <Calendar className="h-12 w-12 text-gray-100 mx-auto mb-4" />
-                <p className="text-gray-400 italic font-medium">No pending leave requests</p>
+              <div className="flex flex-col items-center justify-center py-14">
+                <div className="h-12 w-12 rounded-2xl bg-surface-muted flex items-center justify-center mb-3">
+                  <Calendar className="h-6 w-6 text-ink-soft" />
+                </div>
+                <p className="text-sm font-medium text-ink-muted">No pending leave requests</p>
+                <p className="text-xs text-ink-soft mt-0.5">All caught up!</p>
               </div>
             )}
           </Card>
         </div>
 
         {/* New Joiners Widget */}
-        <div className="space-y-6">
-          <div className="flex items-center justify-between px-1">
-            <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-              <UserPlus className="h-5 w-5 text-gray-400" />
-              New Joiners
-            </h2>
-          </div>
-          <Card className="p-6 space-y-6 border-gray-100 shadow-sm bg-white rounded-2xl">
-            {newJoiners.length > 0 ? (
-              <div className="space-y-6">
-                {newJoiners.map((person) => (
-                  <div key={person.id} className="flex items-center gap-4 group">
-                    <Avatar
-                      name={person.name}
-                      className="h-10 w-10 ring-2 ring-gray-50 group-hover:ring-blue-100 transition-all font-bold"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-sm text-gray-900 truncate">{person.name}</p>
-                      <p className="text-[11px] text-gray-500 font-medium truncate uppercase tracking-wider">
-                        {person.position} • {person.department}
-                      </p>
-                    </div>
-                    <div className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded">
-                      {new Date(person.joinDate).toLocaleDateString(undefined, {
-                        month: 'short',
-                        day: 'numeric',
-                      })}
-                    </div>
-                  </div>
-                ))}
+        <div>
+          <Card className="overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <div>
+                <h2 className="text-[14px] font-semibold text-ink">New Joiners</h2>
+                <p className="text-xs text-ink-muted mt-0.5">This month</p>
               </div>
-            ) : (
-              <div className="py-12 text-center text-sm text-gray-400 italic font-medium">
-                No new joiners this month
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-50">
+                <UserPlus className="h-3.5 w-3.5 text-brand-500" />
               </div>
-            )}
-            <div className="pt-4 border-t border-gray-50">
-              <Link
-                to="/hr/employees/new"
-                className="flex w-full items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-900 shadow-sm hover:bg-gray-50 transition-colors"
-              >
-                Add Employee
-              </Link>
+            </div>
+
+            <div className="p-5">
+              {newJoiners.length > 0 ? (
+                <div className="space-y-4">
+                  {newJoiners.map((person) => (
+                    <div key={person.id} className="flex items-center gap-3 group">
+                      <Avatar name={person.name} size="md" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-ink truncate">{person.name}</p>
+                        <p className="text-[11px] text-ink-muted truncate uppercase tracking-wider">
+                          {person.position}
+                        </p>
+                      </div>
+                      <div className="text-[10px] font-semibold text-ink-soft bg-surface-muted px-2 py-1 rounded-md shrink-0">
+                        {new Date(person.joinDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-8 text-center text-sm text-ink-soft italic">
+                  No new joiners this month
+                </div>
+              )}
+
+              <div className="mt-5 pt-4 border-t border-border">
+                <Link
+                  to="/hr/employees/new"
+                  className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-xs font-semibold text-white hover:bg-brand-600 transition-colors shadow-sm"
+                >
+                  <UserPlus className="h-3.5 w-3.5" />
+                  Add Employee
+                </Link>
+              </div>
             </div>
           </Card>
         </div>
@@ -272,26 +271,22 @@ export default function HRDashboard() {
   );
 }
 
-function StatCard({ icon, label, value, subtext, bgColor }) {
+function StatCard({ icon, label, value, subtext, iconBg }) {
   return (
-    <Card className="p-6 border-gray-100 shadow-sm bg-white rounded-2xl group hover:shadow-md transition-all">
-      <div className="flex justify-between items-start mb-4">
-        <div
-          className={`h-12 w-12 rounded-2xl ${bgColor} flex items-center justify-center transition-transform group-hover:scale-110 shadow-sm`}
-        >
+    <Card hover className="p-5 animate-fade-up">
+      <div className="flex items-start justify-between mb-4">
+        <div className={`h-10 w-10 rounded-xl ${iconBg} flex items-center justify-center`}>
           {icon}
         </div>
-        <div className="opacity-10 group-hover:opacity-20 transition-opacity">{icon}</div>
       </div>
       <div>
-        <p className="text-sm font-bold text-gray-500 tracking-tight">{label}</p>
-        <div className="flex items-baseline gap-2 mt-1">
-          <span className="text-3xl font-bold text-gray-900 leading-none">{value}</span>
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-            {subtext}
-          </span>
-        </div>
+        <div className="text-[26px] font-bold text-ink leading-none">{value ?? '—'}</div>
+        <div className="mt-1 text-xs font-medium text-ink-muted">{label}</div>
+        <div className="mt-0.5 text-[10px] text-ink-soft uppercase tracking-widest font-semibold">{subtext}</div>
       </div>
     </Card>
   );
 }
+
+
+

@@ -120,7 +120,7 @@ export default function HREmployeeProfilePage() {
 
 function Pill({ icon: Icon, children }) {
   return (
-    <div className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
+    <div className="inline-flex items-center gap-1.5 rounded-full bg-surface-muted px-3 py-1 text-xs font-semibold text-ink-muted">
       {Icon && <Icon className="h-3.5 w-3.5" />}
       {children}
     </div>
@@ -243,3 +243,6 @@ function SummaryTile({ label, value, tone }) {
     </div>
   );
 }
+
+
+

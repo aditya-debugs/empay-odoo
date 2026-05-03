@@ -59,8 +59,6 @@ export default function SignupPage() {
 
   return (
     <AuthLayout
-      title="Set up your workspace"
-      subtitle="Create the first admin account for your company"
       footer={
         <>
           Already have an account?{' '}
@@ -71,6 +69,10 @@ export default function SignupPage() {
       }
     >
       <form className="flex flex-col gap-4" onSubmit={onSubmit}>
+        <div className="mb-1">
+          <h1 className="text-[20px] font-bold tracking-tight text-ink">Set up your workspace</h1>
+          <p className="mt-1 text-sm text-ink-muted">Create the first admin account for your company</p>
+        </div>
         <Input
           label="Company name"
           placeholder="Acme Inc."
@@ -142,3 +144,6 @@ export default function SignupPage() {
     </AuthLayout>
   );
 }
+
+
+

@@ -187,4 +187,71 @@ async function listAllAttendance({ date, search } = {}) {
   return { records };
 }
 
-module.exports = { checkIn, checkOut, getAttendanceHistory, listAllAttendance };
+async function raiseRegularization(userId, { date, reason }) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { employee: true },
+  });
+
+  if (!user || !user.employee) {
+    const err = new Error('Employee record not found');
+    err.status = 404;
+    throw err;
+  }
+
+  const targetDate = new Date(date);
+  targetDate.setHours(0, 0, 0, 0);
+
+  // Upsert attendance record for the date if it doesn't exist
+  const attendance = await prisma.attendance.upsert({
+    where: { employeeId_date: { employeeId: user.employee.id, date: targetDate } },
+    create: { employeeId: user.employee.id, date: targetDate, status: 'ABSENT' },
+    update: {},
+  });
+
+  // Create or update the regularization request
+  return prisma.attendanceRegularization.upsert({
+    where: { attendanceId: attendance.id },
+    create: { attendanceId: attendance.id, reason, status: 'PENDING' },
+    update: { reason, status: 'PENDING' },
+  });
+}
+
+async function listRegularizationRequests() {
+  return prisma.attendanceRegularization.findMany({
+    include: {
+      attendance: {
+        include: {
+          employee: {
+            include: { user: { select: { name: true, loginId: true } } },
+          },
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
+async function reviewRegularization(id, reviewerId, { status }) {
+  const allowed = ['APPROVED', 'REJECTED'];
+  if (!allowed.includes(status)) {
+    const err = new Error(`Status must be one of: ${allowed.join(', ')}`);
+    err.status = 400;
+    throw err;
+  }
+
+  return prisma.attendanceRegularization.update({
+    where: { id },
+    data: { status, reviewedById: reviewerId, reviewedAt: new Date() },
+  });
+}
+
+module.exports = {
+  checkIn,
+  checkOut,
+  getAttendanceHistory,
+  listAllAttendance,
+  raiseRegularization,
+  listRegularizationRequests,
+  reviewRegularization,
+};

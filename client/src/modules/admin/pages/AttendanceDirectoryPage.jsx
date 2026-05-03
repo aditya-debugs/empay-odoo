@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Card, Input, Avatar, Tabs, Button } from '../../../features/ui';
+import { Card, Input, Avatar, Tabs, Button, DateInput } from '../../../features/ui';
 import { Search, Clock, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 import api from '../../../services/api';
 
@@ -81,11 +81,10 @@ export default function AttendanceDirectoryPage() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <input
-              type="date"
+            <DateInput
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="px-3 py-2 border border-ink-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="w-48"
             />
           </div>
 
@@ -160,3 +159,6 @@ export default function AttendanceDirectoryPage() {
     </div>
   );
 }
+
+
+

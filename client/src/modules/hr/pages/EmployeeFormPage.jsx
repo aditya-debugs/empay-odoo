@@ -15,7 +15,7 @@ import {
   History,
   AlertCircle
 } from 'lucide-react';
-import { Card, Button, Input, Avatar, Tabs } from '../../../features/ui';
+import { Card, Button, Input, Avatar, Tabs, DateInput } from '../../../features/ui';
 import { useAuth } from '../../../features/auth/AuthContext';
 import hrService from '../hrService';
 
@@ -210,7 +210,7 @@ export default function EmployeeFormPage() {
                       <option value="OTHER">Other</option>
                     </select>
                   </div>
-                  <Input label="Join Date" type="date" value={form.joinDate} onChange={e => setForm({...form, joinDate: e.target.value})} required />
+                  <DateInput label="Join Date" value={form.joinDate} onChange={e => setForm({...form, joinDate: e.target.value})} required />
                 </div>
               </div>
             </div>
@@ -313,3 +313,6 @@ export default function EmployeeFormPage() {
     </div>
   );
 }
+
+
+

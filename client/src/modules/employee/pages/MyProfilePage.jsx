@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Card, Button, Input } from '../../../features/ui';
+import { Card, Button, Input, DateInput } from '../../../features/ui';
 import { Save } from 'lucide-react';
 import api from '../../../services/api';
 
@@ -12,15 +12,10 @@ export default function MyProfilePage() {
   const [success, setSuccess] = useState('');
 
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    phone: '',
-    dob: '',
-    bankIfsc: '',
-    aboutMe: '',
-    skills: '',
-    certificates: '',
-    resumeUrl: ''
+    firstName: '', lastName: '', phone: '', dob: '',
+    pan: '', aadhaar: '',
+    bankName: '', bankBranch: '', bankAccountNo: '', bankIfsc: '',
+    aboutMe: '', skills: '', certificates: '', resumeUrl: '',
   });
 
   useEffect(() => {
@@ -34,11 +29,16 @@ export default function MyProfilePage() {
           lastName: emp.lastName || '',
           phone: emp.phone || '',
           dob: emp.dob ? new Date(emp.dob).toISOString().split('T')[0] : '',
+          pan: emp.pan || '',
+          aadhaar: emp.aadhaar || '',
+          bankName: emp.bankName || '',
+          bankBranch: emp.bankBranch || '',
+          bankAccountNo: emp.bankAccountNo || '',
           bankIfsc: emp.bankIfsc || '',
           aboutMe: emp.aboutMe || '',
           skills: (emp.skills || []).join(', '),
           certificates: (emp.certificates || []).join(', '),
-          resumeUrl: emp.resumeUrl || ''
+          resumeUrl: emp.resumeUrl || '',
         });
       } catch (err) {
         setError(err.message || 'Failed to load profile');
@@ -62,7 +62,9 @@ export default function MyProfilePage() {
         firstName: formData.firstName,
         lastName: formData.lastName,
         phone: formData.phone,
-        dob: formData.dob
+        dob: formData.dob,
+        pan: formData.pan,
+        aadhaar: formData.aadhaar,
       });
       setSuccess('Profile updated successfully');
     } catch (err) {
@@ -79,8 +81,9 @@ export default function MyProfilePage() {
     try {
       await api.patch('/employees/bank-details', {
         bankName: formData.bankName,
+        bankBranch: formData.bankBranch,
         bankAccountNo: formData.bankAccountNo,
-        bankIfsc: formData.bankIfsc
+        bankIfsc: formData.bankIfsc,
       });
       setSuccess('Bank details updated successfully');
     } catch (err) {
@@ -185,11 +188,24 @@ export default function MyProfilePage() {
               value={formData.phone}
               onChange={handleInputChange}
             />
-            <Input
+            <DateInput
               label="Date of Birth"
               name="dob"
-              type="date"
               value={formData.dob}
+              onChange={handleInputChange}
+            />
+            <Input
+              label="PAN Number"
+              name="pan"
+              placeholder="ABCDE1234F"
+              value={formData.pan}
+              onChange={handleInputChange}
+            />
+            <Input
+              label="Aadhaar Number"
+              name="aadhaar"
+              placeholder="1234 5678 9012"
+              value={formData.aadhaar}
               onChange={handleInputChange}
             />
           </div>
@@ -271,22 +287,32 @@ export default function MyProfilePage() {
       {/* Bank Details Tab */}
       {activeTab === 'bank' && (
         <Card className="mt-6 p-6">
-          <div className="grid grid-cols-1 gap-6">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <Input
               label="Bank Name"
               name="bankName"
+              placeholder="HDFC Bank"
               value={formData.bankName}
+              onChange={handleInputChange}
+            />
+            <Input
+              label="Branch Name"
+              name="bankBranch"
+              placeholder="Andheri West"
+              value={formData.bankBranch}
               onChange={handleInputChange}
             />
             <Input
               label="Account Number"
               name="bankAccountNo"
+              placeholder="XXXXXXXXXXXX"
               value={formData.bankAccountNo}
               onChange={handleInputChange}
             />
             <Input
               label="IFSC Code"
               name="bankIfsc"
+              placeholder="HDFC0001234"
               value={formData.bankIfsc}
               onChange={handleInputChange}
             />
@@ -342,3 +368,6 @@ export default function MyProfilePage() {
     </div>
   );
 }
+
+
+

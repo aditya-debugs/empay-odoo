@@ -2,11 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, Plus, MoreHorizontal, KeyRound, UserX, Trash2, Eye, ShieldCheck,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { Avatar, Button, Card } from '../../../features/ui';
 import { useAuth } from '../../../features/auth/AuthContext';
 import { ALL_ROLES } from '../../../features/employees/employeeMocks';
 import usersService from '../../../services/usersService';
+
+const PAGE_SIZE = 10;
 
 const roleStyle = {
   ADMIN:           'bg-brand-100 text-brand-700',
@@ -26,6 +29,7 @@ export default function UsersPage() {
   const [roleFilter, setRoleFilter] = useState('');
   const [openMenuId, setOpenMenuId] = useState(null);
   const [resetResult, setResetResult] = useState(null);
+  const [page, setPage] = useState(1);
 
   async function refresh() {
     setLoading(true);
@@ -42,19 +46,26 @@ export default function UsersPage() {
 
   useEffect(() => { refresh(); }, []);
 
-  const filtered = useMemo(() => users.filter((u) => {
-    if (roleFilter && u.role !== roleFilter) return false;
-    if (query) {
-      const q = query.toLowerCase();
-      const fullName = `${u.firstName || ''} ${u.lastName || ''}`.toLowerCase();
-      if (
-        !fullName.includes(q) &&
-        !(u.email || '').toLowerCase().includes(q) &&
-        !(u.loginId || '').toLowerCase().includes(q)
-      ) return false;
-    }
-    return true;
-  }), [users, query, roleFilter]);
+  const filtered = useMemo(() => {
+    setPage(1); // reset to page 1 whenever filters change
+    return users.filter((u) => {
+      if (roleFilter && u.role !== roleFilter) return false;
+      if (query) {
+        const q = query.toLowerCase();
+        const fullName = `${u.firstName || ''} ${u.lastName || ''}`.toLowerCase();
+        if (
+          !fullName.includes(q) &&
+          !(u.email || '').toLowerCase().includes(q) &&
+          !(u.loginId || '').toLowerCase().includes(q)
+        ) return false;
+      }
+      return true;
+    });
+  }, [users, query, roleFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paginated = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   async function changeRole(id, newRole) {
     const prev = users;
@@ -162,7 +173,7 @@ export default function UsersPage() {
                 <tr><td colSpan={6} className="px-5 py-12 text-center text-sm text-ink-muted">Loading…</td></tr>
               )}
 
-              {!loading && filtered.map((u) => {
+              {!loading && paginated.map((u) => {
                 const isSelf = u.id === currentUser?.id;
                 return (
                   <tr key={u.id} className="border-b border-border last:border-0 hover:bg-surface-muted/40">
@@ -253,6 +264,67 @@ export default function UsersPage() {
         </div>
       </Card>
 
+      {/* Pagination */}
+      {!loading && filtered.length > 0 && (
+        <div className="mt-4 flex items-center justify-between gap-4">
+          {/* Row count info */}
+          <p className="text-xs text-ink-muted">
+            Showing <span className="font-semibold text-ink">{(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)}</span> of <span className="font-semibold text-ink">{filtered.length}</span> users
+          </p>
+
+          {/* Page buttons — Google style */}
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={safePage === 1}
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-ink-muted transition-colors hover:bg-surface-muted disabled:opacity-40 disabled:cursor-not-allowed"
+              aria-label="Previous page"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter((p) => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
+              .reduce((acc, p, idx, arr) => {
+                if (idx > 0 && p - arr[idx - 1] > 1) acc.push('ellipsis-' + p);
+                acc.push(p);
+                return acc;
+              }, [])
+              .map((p) =>
+                typeof p === 'string' ? (
+                  <span key={p} className="flex h-8 w-8 items-center justify-center text-xs text-ink-soft select-none">
+                    …
+                  </span>
+                ) : (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setPage(p)}
+                    className={`flex h-8 w-8 items-center justify-center rounded-lg text-sm font-medium transition-all ${
+                      p === safePage
+                        ? 'bg-brand-500 text-white shadow-sm'
+                        : 'border border-border text-ink-muted hover:bg-surface-muted'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                )
+              )}
+
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={safePage === totalPages}
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-ink-muted transition-colors hover:bg-surface-muted disabled:opacity-40 disabled:cursor-not-allowed"
+              aria-label="Next page"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Footer hint */}
       <div className="mt-3 flex items-center gap-2 text-xs text-ink-muted">
         <ShieldCheck className="h-3.5 w-3.5 text-brand-500" />
@@ -310,3 +382,6 @@ function MenuItem({ icon: Icon, children, onClick, danger, disabled }) {
     </button>
   );
 }
+
+
+
