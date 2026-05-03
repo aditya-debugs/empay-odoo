@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Card } from '../../../features/ui';
+import { Card, Input } from '../../../features/ui';
 import { useAuth } from '../../../features/auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../../../services/api';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const TABS = [
   { id: 'payroll', label: 'Payroll Summary' },
@@ -18,7 +20,7 @@ export default function Reports() {
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState('payroll');
-  const [month, setMonth] = useState(() => new Date().toISOString().substring(0, 7));
+  const [month, setMonth] = useState(() => new Date().toISOString().substring(0, 10));
   const [year, setYear] = useState(() => new Date().getFullYear().toString());
   const [employeeId, setEmployeeId] = useState('');
   
@@ -33,6 +35,10 @@ export default function Reports() {
       navigate('/dashboard', { replace: true });
     }
   }, [user, navigate]);
+
+  useEffect(() => {
+    fetchReport();
+  }, [activeTab, month, year]);
 
   const fetchReport = async () => {
     setLoading(true);
@@ -106,15 +112,66 @@ export default function Reports() {
   };
 
   const exportPDF = () => {
-    let url = `${import.meta.env.VITE_API_URL}/reports/${activeTab}?format=pdf`;
-    if (activeTab === 'ytd') {
-      url += `&year=${year}`;
-      if (employeeId) url += `&employeeId=${employeeId}`;
-    } else {
-      url += `&month=${month}`;
+    if (!data) return;
+    const doc = new jsPDF('l', 'mm', 'a4'); // Landscape for reports
+    const title = TABS.find(t => t.id === activeTab)?.label || 'Report';
+    const period = activeTab === 'ytd' ? `Year: ${year}` : `Month: ${month}`;
+
+    doc.setFontSize(20);
+    doc.text('EmPay — ' + title, 14, 15);
+    doc.setFontSize(10);
+    doc.text(period, 14, 22);
+
+    let head = [];
+    let body = [];
+
+    const fmtPDF = (val) => 'Rs. ' + Number(val).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+
+    if (activeTab === 'payroll') {
+      head = [['Employee', 'Basic', 'Gross', 'Deductions', 'Net', 'Status']];
+      body = data.map(r => [
+        `${r.employee?.firstName} ${r.employee?.lastName}`,
+        fmtPDF(r.basicSalary),
+        fmtPDF(r.grossSalary),
+        fmtPDF(r.totalDeductions),
+        fmtPDF(r.netSalary),
+        r.status
+      ]);
+    } else if (activeTab === 'pf') {
+      head = [['Employee', 'Gross Salary', 'PF Deduction', 'Status']];
+      body = data.map(r => [
+        `${r.employee?.firstName} ${r.employee?.lastName}`,
+        fmtPDF(r.grossSalary),
+        fmtPDF(r.pfDeduction),
+        r.status
+      ]);
+    } else if (activeTab === 'prof-tax') {
+      head = [['Employee', 'Gross Salary', 'Prof. Tax', 'Status']];
+      body = data.map(r => [
+        `${r.employee?.firstName} ${r.employee?.lastName}`,
+        fmtPDF(r.grossSalary),
+        fmtPDF(r.professionalTax),
+        r.status
+      ]);
+    } else if (activeTab === 'ytd') {
+      head = [['Employee', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Total']];
+      body = groupedYtd.map(row => [
+        row.employeeName,
+        ...[1,2,3,4,5,6,7,8,9,10,11,12].map(m => row.months[m] ? fmtPDF(row.months[m]) : '-'),
+        fmtPDF(row.annualTotal)
+      ]);
     }
-    // Assumes the backend generates the PDF stream
-    window.open(url, '_blank');
+
+    autoTable(doc, {
+      startY: 30,
+      head: head,
+      body: body,
+      theme: 'grid',
+      headStyles: { fillColor: [15, 76, 58], fontSize: 8 },
+      bodyStyles: { fontSize: 8 }
+    });
+
+    doc.save(`${activeTab}_report_${activeTab === 'ytd' ? year : month}.pdf`);
   };
 
   const getGroupedYtd = () => {

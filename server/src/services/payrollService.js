@@ -24,6 +24,11 @@ const processPayroll = async (month, user) => {
   return await calculator.processPayrollForMonth(month);
 };
 
+const processIndividualPayroll = async (employeeId, month, user) => {
+  assertRole(user, ['ADMIN', 'PAYROLL_OFFICER']);
+  return await calculator.processPayrollForEmployee(employeeId, month);
+};
+
 const getPayslips = async (filters, user) => {
   if (user.role === 'EMPLOYEE') {
     // Need to get user's employeeId
@@ -160,6 +165,7 @@ module.exports = {
   getDashboardStats,
   previewPayroll,
   processPayroll,
+  processIndividualPayroll,
   getPayslips,
   getPayslipById,
   generatePDF,

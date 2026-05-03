@@ -9,7 +9,7 @@ const {
   calculateOvertimeBonus
 } = require('./calculators/deductions');
 
-async function calculatePayrollForEmployee(employeeId, month) {
+async function processPayrollForEmployee(employeeId, month) {
   // 1. Fetch employee (basicSalary, joiningDate)
   const employee = await prisma.employee.findUnique({
     where: { id: employeeId },
@@ -31,9 +31,6 @@ async function calculatePayrollForEmployee(employeeId, month) {
       date: { gte: startDate, lte: endDate }
     }
   });
-
-  // 3. If no attendance records -> proceed with 0 present days (no throw)
-  // Removed MISSING_ATTENDANCE throw so payslips generate even with 0 attendance
 
   // Calculate attendance summaries
   const presentDays = attendances.filter(a => a.status === 'PRESENT' || a.status === 'REGULARIZED').length;
@@ -58,12 +55,12 @@ async function calculatePayrollForEmployee(employeeId, month) {
     approvedLeaveDays += (days > 0 ? days : 0);
   }
 
-  // 5. Check if already processed
+  // 5. Check if already processed (Locked)
   const existingPayroll = await prisma.payroll.findFirst({
     where: { employeeId, month }
   });
-  if (existingPayroll && existingPayroll.status !== 'PENDING') {
-    throw { code: 'ALREADY_PROCESSED', employeeId };
+  if (existingPayroll && existingPayroll.status === 'LOCKED') {
+    throw { code: 'ALREADY_LOCKED', employeeId };
   }
 
   // 6. Run all calculations in sequence
@@ -75,57 +72,31 @@ async function calculatePayrollForEmployee(employeeId, month) {
   const lopDeduction = lopDays * perDaySalary;
   const overtimeBonus = calculateOvertimeBonus({ overtimeHours, basic: basicSalary, workingDays });
   
-  let grossSalary = basicSalary 
-    + Number(employee.hra || 0) 
-    + Number(employee.conveyance || 0) 
-    + Number(employee.specialAllowance || 0) 
-    + Number(employee.otherAllowance || 0) 
-    - lopDeduction 
-    + overtimeBonus;
+  const hra   = Math.round(basicSalary * 0.50 * 100) / 100;
+  const sa    = Math.round(basicSalary * 0.1667 * 100) / 100;
+  const pb    = Math.round(basicSalary * 0.0833 * 100) / 100;
+  const lta   = Math.round(basicSalary * 0.0833 * 100) / 100;
+  const fixed = Math.round((basicSalary - (hra + sa + pb + lta)) * 100) / 100;
 
-  if (grossSalary < 0) grossSalary = 0;
+  const grossSalary = basicSalary + hra + sa + pb + lta + fixed - lopDeduction + overtimeBonus;
 
-  const pfDeduction = employee.pfEnabled ? calculatePF(basicSalary) : 0;
-  const esicDeduction = calculateESIC(grossSalary);
-  const tdsDeduction = calculateTDS(basicSalary);
-  const professionalTax = calculateProfTax(grossSalary);
-  
-  let totalDeductions = pfDeduction + esicDeduction + tdsDeduction + professionalTax;
-  // Bug fix: Negative salary capped at 0
-  let netSalary = grossSalary - totalDeductions;
-  
-  const wasNegative = netSalary < 0;
-  if (wasNegative) {
-    netSalary = 0;
-    totalDeductions = grossSalary;
-  }
+  const pfEmployee   = Math.round(basicSalary * 0.06 * 100) / 100;
+  const pfEmployer   = Math.round(basicSalary * 0.06 * 100) / 100;
+  const pfDeduction  = pfEmployee + pfEmployer;
 
-  return {
-    employeeId,
-    employeeName: employee.user?.name || `${employee.firstName} ${employee.lastName}`,
-    month,
-    basicSalary, workingDays, presentDays, lopDays,
-    perDaySalary, lopDeduction, overtimeBonus, grossSalary,
-    pfDeduction, esicDeduction, tdsDeduction, professionalTax,
-    totalDeductions, netSalary, status: 'PENDING', cappedAtZero: wasNegative
-  };
-}
+  let professionalTax = 0;
+  if (grossSalary > 10000) professionalTax = 200;
+  else if (grossSalary > 7500) professionalTax = 175;
 
-async function processPayrollForEmployee(employeeId, month) {
-  const calc = await calculatePayrollForEmployee(employeeId, month);
-  const {
-    basicSalary, workingDays, presentDays, lopDays,
-    perDaySalary, lopDeduction, overtimeBonus, grossSalary,
-    pfDeduction, esicDeduction, tdsDeduction, professionalTax,
-    totalDeductions, netSalary, cappedAtZero
-  } = calc;
-  
-  // Also fetch employee for some HRA/conveyance needed in payslip breakdown
-  const employee = await prisma.employee.findUnique({ where: { id: employeeId } });
-  
-  const [yearStr, monthStr] = month.split('-');
-  const year = parseInt(yearStr, 10);
-  const monthNum = parseInt(monthStr, 10);
+  const annualGross = grossSalary * 12;
+  let annualTax = 0;
+  if (annualGross > 1000000) annualTax = 112500 + (annualGross - 1000000) * 0.30;
+  else if (annualGross > 500000) annualTax = 12500 + (annualGross - 500000) * 0.20;
+  else if (annualGross > 250000) annualTax = (annualGross - 250000) * 0.05;
+  const tdsDeduction = Math.round((annualTax / 12) * 100) / 100;
+
+  const totalDeductions = pfDeduction + professionalTax + tdsDeduction;
+  const netSalary = Math.max(0, grossSalary - totalDeductions);
 
   // 7. Prisma upsert payroll record
   const payroll = await prisma.payroll.upsert({
@@ -133,37 +104,49 @@ async function processPayrollForEmployee(employeeId, month) {
     update: {
       basicSalary, workingDays, presentDays, lopDays,
       perDaySalary, lopDeduction, overtimeBonus, grossSalary,
-      pfDeduction, esicDeduction, tdsDeduction, professionalTax,
-      totalDeductions, netSalary, status: 'PROCESSED', cappedAtZero
+      pfDeduction, tdsDeduction, professionalTax,
+      totalDeductions, netSalary, status: 'PROCESSED', cappedAtZero: netSalary === 0
     },
     create: {
       employeeId, month,
       basicSalary, workingDays, presentDays, lopDays,
       perDaySalary, lopDeduction, overtimeBonus, grossSalary,
-      pfDeduction, esicDeduction, tdsDeduction, professionalTax,
-      totalDeductions, netSalary, status: 'PROCESSED', cappedAtZero
+      pfDeduction, tdsDeduction, professionalTax,
+      totalDeductions, netSalary, status: 'PROCESSED', cappedAtZero: netSalary === 0
     }
   });
 
-  // 8. Prisma create payslip
-  // Note: Using existing Payslip fields (`earnings` and `deductions` arrays of objects) 
-  // since the existing Payslip model was preserved per user constraint.
+  // 8. Prisma create/update payslip
   const earnings = [
     { label: 'Basic Salary', amount: basicSalary },
-    { label: 'HRA', amount: Number(employee.hra || 0) },
-    { label: 'Conveyance', amount: Number(employee.conveyance || 0) },
-    { label: 'Special Allowance', amount: Number(employee.specialAllowance || 0) },
-    { label: 'Other Allowance', amount: Number(employee.otherAllowance || 0) },
+    { label: 'House Rent Allowance', amount: hra },
+    { label: 'Standard Allowance', amount: sa },
+    { label: 'Performance Bonus', amount: pb },
+    { label: 'Leave Travel Allowance', amount: lta },
+    { label: 'Fixed Allowance', amount: fixed },
     { label: 'Overtime Bonus', amount: overtimeBonus }
   ].filter(e => e.amount > 0);
 
   const deductions = [
     { label: 'LOP Deduction', amount: lopDeduction },
-    { label: 'PF', amount: pfDeduction },
-    { label: 'ESIC', amount: esicDeduction },
-    { label: 'TDS', amount: tdsDeduction },
+    { label: 'PF Employee', amount: pfEmployee },
+    { label: "PF Employer's", amount: pfEmployer },
+    { label: 'TDS Deduction', amount: tdsDeduction },
     { label: 'Professional Tax', amount: professionalTax }
   ].filter(d => d.amount > 0);
+
+  const breakdown = {
+    earnings, deductions,
+    workedDays: {
+      attendance: presentDays,
+      approvedLeaves: approvedLeaveDays,
+      halfDays,
+      lopDays,
+      workingDays,
+      perDaySalary
+    },
+    grossSalary, totalDeductions, netSalary
+  };
 
   const existingPayslip = await prisma.payslip.findFirst({
     where: { employeeId, month: monthNum, year },
@@ -174,26 +157,14 @@ async function processPayrollForEmployee(employeeId, month) {
 
   const payslip = await prisma.payslip.create({
     data: {
-      employeeId,
-      month: monthNum,
-      year,
-      version: nextVersion,
-      workingDays,
-      paidDays: workingDays - lopDays,
-      lopDays,
-      basicSalary,
-      grossSalary,
-      totalDeductions,
-      netSalary,
-      cappedAtZero,
-      earnings,
-      deductions,
-      status: 'GENERATED'
+      employeeId, month: monthNum, year, version: nextVersion,
+      workingDays, paidDays: workingDays - lopDays, lopDays,
+      basicSalary, grossSalary, totalDeductions, netSalary,
+      earnings, deductions, status: 'COMPUTED'
     }
   });
 
-  // 9. Return
-  return { payroll, payslip };
+  return { payroll, payslip, breakdown };
 }
 
 async function processPayrollForMonth(month) {
@@ -217,6 +188,7 @@ async function processPayrollForMonth(month) {
 }
 
 async function previewPayrollForMonth(month) {
+  // Preview logic can stay simplified or use the same calc logic without creating payslip
   const employees = await prisma.employee.findMany({
     where: { status: 'ACTIVE' }
   });
@@ -224,27 +196,12 @@ async function previewPayrollForMonth(month) {
   const preview = [];
   for (const emp of employees) {
     try {
-      const calc = await calculatePayrollForEmployee(emp.id, month);
-      
-      // Save preview to DB so it doesn't disappear on revisit
-      await prisma.payroll.upsert({
-        where: { employeeId_month: { employeeId: emp.id, month } },
-        update: {
-          basicSalary: calc.basicSalary, workingDays: calc.workingDays, presentDays: calc.presentDays, lopDays: calc.lopDays,
-          perDaySalary: calc.perDaySalary, lopDeduction: calc.lopDeduction, overtimeBonus: calc.overtimeBonus, grossSalary: calc.grossSalary,
-          pfDeduction: calc.pfDeduction, esicDeduction: calc.esicDeduction, tdsDeduction: calc.tdsDeduction, professionalTax: calc.professionalTax,
-          totalDeductions: calc.totalDeductions, netSalary: calc.netSalary, status: 'PENDING', cappedAtZero: calc.cappedAtZero
-        },
-        create: {
-          employeeId: emp.id, month,
-          basicSalary: calc.basicSalary, workingDays: calc.workingDays, presentDays: calc.presentDays, lopDays: calc.lopDays,
-          perDaySalary: calc.perDaySalary, lopDeduction: calc.lopDeduction, overtimeBonus: calc.overtimeBonus, grossSalary: calc.grossSalary,
-          pfDeduction: calc.pfDeduction, esicDeduction: calc.esicDeduction, tdsDeduction: calc.tdsDeduction, professionalTax: calc.professionalTax,
-          totalDeductions: calc.totalDeductions, netSalary: calc.netSalary, status: 'PENDING', cappedAtZero: calc.cappedAtZero
-        }
+      const result = await processPayrollForEmployee(emp.id, month);
+      preview.push({
+        employeeId: emp.id,
+        employeeName: `${emp.firstName} ${emp.lastName}`,
+        ...result.payroll
       });
-      
-      preview.push(calc);
     } catch (error) {
       preview.push({ 
         employeeId: emp.id, 

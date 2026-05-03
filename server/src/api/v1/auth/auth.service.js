@@ -43,7 +43,7 @@ async function registerAdmin({ email, password, name, companyName, phone }) {
 
   // Send email
   const { sendEmail } = require('../../../utils/email');
-  const verifyUrl = `${process.env.CLIENT_URL || 'http://localhost:5174'}/verify-email?token=${token}`;
+  const verifyUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/verify-email?token=${token}`;
   
   const html = `
     <div style="font-family: sans-serif; max-w: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
@@ -115,10 +115,12 @@ async function login({ identifier, password }) {
     throw err;
   }
 
+  console.log(`[AUTH] Comparing password for ${user.email}...`);
   const ok = await comparePassword(password, user.passwordHash);
-  console.log(`[AUTH] Password check for ${user.email}: ${ok ? 'SUCCESS' : 'FAILED'}`);
+  console.log(`[AUTH] Password comparison result: ${ok}`);
   
   if (!ok) {
+    console.log(`[AUTH] Password mismatch for ${user.email}`);
     const err = new Error('Invalid credentials');
     err.status = 401;
     throw err;

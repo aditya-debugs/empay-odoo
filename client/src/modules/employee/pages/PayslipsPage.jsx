@@ -65,7 +65,24 @@ export default function PayslipsPage() {
     }
   };
 
-  if (loading) return <div className="flex h-full items-center justify-center">Loading...</div>;
+  const formatINR = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val || 0);
+
+  const handleDownload = async (payslip) => {
+    try {
+      const response = await api.get(`/payslips/${payslip.id}/pdf`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `payslip_${payslip.year}_${payslip.month}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      setError('Failed to download PDF');
+    }
+  };
+
+  if (loading) return <div className="p-8">Loading...</div>;
 
   return (
     <div className="px-8 py-8 space-y-6">
@@ -83,13 +100,22 @@ export default function PayslipsPage() {
             No official payslips have been issued for your account yet.
           </div>
         ) : (
-          payslips.map((payslip) => (
-            <Card key={payslip.id} className="p-0 overflow-hidden hover:shadow-lg transition-all border-none relative group">
-              <div className="bg-surface-muted/50 px-6 py-4 border-b border-border flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-brand-500" />
-                  <span className="text-sm font-bold text-ink">
-                    {new Date(0, payslip.month - 1).toLocaleString('default', { month: 'long' })} {payslip.year}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {payslips.map((payslip) => (
+              <Card key={payslip.id} className="p-6 hover:shadow-md transition-shadow">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h3 className="font-semibold">
+                      {new Date(`${payslip.year}-${String(payslip.month).padStart(2, '0')}-01`).toLocaleString('default', { month: 'long', year: 'numeric' })}
+                    </h3>
+                    <p className="text-xs text-ink-muted mt-1">
+                      System Generated
+                    </p>
+                  </div>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    payslip.status === 'GENERATED' || payslip.status === 'LOCKED' ? 'bg-success-100 text-success-700' : 'bg-warning-100 text-warning-700'
+                  }`}>
+                    {payslip.status}
                   </span>
                 </div>
                 <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-tight ${
@@ -99,15 +125,22 @@ export default function PayslipsPage() {
                 </span>
               </div>
 
-              <div className="p-6 space-y-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-ink-soft">Gross Earnings</span>
-                    <span className="font-bold text-ink">₹{Number(payslip.grossSalary || 0).toLocaleString('en-IN')}</span>
+                <div className="space-y-3 mb-4 pb-4 border-b border-ink-200">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-ink-muted">Basic Salary</span>
+                    <span className="text-sm font-semibold">{formatINR(payslip.basicSalary)}</span>
                   </div>
-                  <div className="flex justify-between text-xs text-danger-600/80">
-                    <span>Total Deductions</span>
-                    <span className="font-bold">-₹{Number(payslip.totalDeductions || 0).toLocaleString('en-IN')}</span>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-ink-muted">Gross Salary</span>
+                    <span className="text-sm font-semibold">{formatINR(payslip.grossSalary)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-ink-muted">Total Deductions</span>
+                    <span className="text-sm font-semibold text-danger-600">-{formatINR(payslip.totalDeductions)}</span>
+                  </div>
+                  <div className="flex justify-between bg-primary-50 p-2 rounded">
+                    <span className="text-sm font-medium">Net Salary</span>
+                    <span className="text-sm font-bold text-primary-600">{formatINR(payslip.netSalary)}</span>
                   </div>
                 </div>
 

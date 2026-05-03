@@ -9,19 +9,43 @@ export default function EmployeeDashboard() {
   const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showDisputeForm, setShowDisputeForm] = useState(false);
+  const [disputeReason, setDisputeReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const data = await api.get('/dashboard/employee');
-        setDashboard(data);
-      } catch (err) {
-        setError(err.message || 'Failed to load dashboard');
-      } finally {
-        setLoading(false);
-      }
-    })();
+    fetchDashboard();
   }, []);
+  
+  const fetchDashboard = async () => {
+    try {
+      const data = await api.get('/dashboard/employee');
+      setDashboard(data);
+    } catch (err) {
+      setError(err.message || 'Failed to load dashboard');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReportIssue = async (e) => {
+    e.preventDefault();
+    if (!dashboard?.lastPayslip) return;
+
+    setSubmitting(true);
+    try {
+      await api.post(`/payslips/${dashboard.lastPayslip.id}/dispute`, {
+        reason: disputeReason
+      });
+      setDisputeReason('');
+      setShowDisputeForm(false);
+      await fetchDashboard();
+    } catch (err) {
+      alert(err.message || 'Failed to report issue');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -146,6 +170,115 @@ export default function EmployeeDashboard() {
                 )}
               </div>
             </Card>
+                    <div className="text-right">
+                       <p className="text-[10px] text-ink-soft">Utilized: {leave.used}</p>
+                       <div className="w-16 h-1 bg-surface-muted rounded-full mt-1">
+                          <div className="h-full bg-brand-500 rounded-full" style={{ width: `${(leave.used / leave.total) * 100}%` }} />
+                       </div>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-ink-muted">Used</p>
+                    <p className="text-lg font-semibold">{leave.used}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-ink-muted">Available</p>
+                    <p className="text-lg font-semibold text-success-600">{leave.available}</p>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+
+        {/* Last Payslip */}
+        {dashboard?.lastPayslip && (
+          <div className="mt-8">
+            <h2 className="text-xl font-semibold mb-4">Last Payslip</h2>
+            <Card className="p-6">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div>
+                  <p className="text-sm text-ink-muted">Month</p>
+                  <p className="text-lg font-semibold mt-1">{dashboard.lastPayslip.month}/{dashboard.lastPayslip.year}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-ink-muted">Net Salary</p>
+                  <p className="text-lg font-semibold mt-1">${dashboard.lastPayslip.netSalary?.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-ink-muted">Status</p>
+                  <p className="text-lg font-semibold mt-1 text-success-600">{dashboard.lastPayslip.status}</p>
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end">
+                <Button 
+                  size="sm" 
+                  variant="secondary" 
+                  className="text-danger-600 hover:bg-danger-50 border-danger-100"
+                  onClick={() => setShowDisputeForm(true)}
+                >
+                  Report Issue
+                </Button>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* My Recent Issues */}
+        {dashboard?.recentDisputes?.length > 0 && (
+          <div className="mt-8">
+            <h2 className="text-xl font-semibold mb-4">My Recent Issues</h2>
+            <div className="space-y-4">
+              {dashboard.recentDisputes.map((dispute) => (
+                <Card key={dispute.id} className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className={`p-2 rounded-lg ${
+                        dispute.status === 'RESOLVED' ? 'bg-success-50 text-success-600' : 
+                        dispute.status === 'REJECTED' ? 'bg-danger-50 text-danger-600' :
+                        'bg-warning-50 text-warning-600'
+                      }`}>
+                        <AlertCircle className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Issue for {dispute.month}/{dispute.year}</p>
+                        <p className="text-xs text-ink-muted line-clamp-1">{dispute.reason}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium uppercase tracking-wider ${
+                        dispute.status === 'RESOLVED' ? 'bg-success-100 text-success-700' :
+                        dispute.status === 'REJECTED' ? 'bg-danger-100 text-danger-700' :
+                        'bg-warning-100 text-warning-700'
+                      }`}>
+                        {dispute.status.replace('_', ' ')}
+                      </span>
+                      <p className="text-[10px] text-ink-muted mt-1">
+                        {new Date(dispute.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Employee Directory Preview */}
+        {dashboard?.recentEmployees && (
+          <div className="mt-8">
+            <h2 className="text-xl font-semibold mb-4">Team Members</h2>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-6">
+              {dashboard.recentEmployees.map((emp) => (
+                <Card key={emp.id} className="p-4 text-center">
+                  <div className="h-12 w-12 rounded-full bg-primary-100 mx-auto flex items-center justify-center mb-2">
+                    <Users className="h-6 w-6 text-primary-600" />
+                  </div>
+                  <p className="font-medium text-sm">{emp.user?.name}</p>
+                  <p className="text-xs text-ink-muted mt-1">{emp.position}</p>
+                </Card>
+              ))}
+            </div>
           </div>
 
           {/* Latest Payslip */}
@@ -204,6 +337,61 @@ export default function EmployeeDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Report Issue Modal */}
+      {showDisputeForm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in p-4">
+          <Card className="max-w-md w-full p-6 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-danger-50 rounded-lg text-danger-600">
+                <AlertCircle className="h-6 w-6" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900">Report Payroll Issue</h3>
+            </div>
+            
+            <p className="text-sm text-gray-600 mb-6">
+              Reporting for <strong>{dashboard?.lastPayslip?.month}/{dashboard?.lastPayslip?.year}</strong>. 
+              Our payroll team will review your concern and get back to you.
+            </p>
+
+            <form onSubmit={handleReportIssue}>
+              <div className="mb-6">
+                <label className="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">
+                  Describe the issue
+                </label>
+                <textarea
+                  value={disputeReason}
+                  onChange={(e) => setDisputeReason(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none transition-all resize-none h-32 text-gray-800 placeholder:text-gray-400"
+                  placeholder="e.g. Salary was calculated incorrectly for 2 days..."
+                  required
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  type="submit"
+                  className="flex-1 bg-brand-600 hover:bg-brand-700 text-white font-bold py-3"
+                  loading={submitting}
+                >
+                  Submit Report
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="px-6 font-bold text-gray-600 border-gray-200"
+                  onClick={() => {
+                    setShowDisputeForm(false);
+                    setDisputeReason('');
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
