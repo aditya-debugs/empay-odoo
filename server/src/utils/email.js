@@ -84,7 +84,7 @@ async function sendWelcomeEmail(user, loginId, tempPassword) {
         <p style="color: #4b5563; font-size: 14px;"><em>Note: You will be required to change your password upon your first login.</em></p>
         
         <div style="text-align: center; margin-top: 32px;">
-          <a href="${process.env.CLIENT_URL || 'http://localhost:5174'}/login" style="background-color: #4f46e5; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; display: inline-block;">Login to EmPay</a>
+          <a href="${process.env.CLIENT_URL || 'http://localhost:5173'}/login" style="background-color: #4f46e5; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; display: inline-block;">Login to EmPay</a>
         </div>
       </div>
     </div>

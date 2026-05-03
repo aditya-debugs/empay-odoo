@@ -1,4 +1,4 @@
-const result = require('dotenv').config();
+const result = require('dotenv').config({ override: true });
 if (result.error) {
   console.error('[env] Error loading .env file:', result.error);
 } else {
@@ -21,3 +21,5 @@ module.exports = {
   },
   clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
 };
+
+console.log(`[env] Client URL configured as: ${module.exports.clientUrl}`);

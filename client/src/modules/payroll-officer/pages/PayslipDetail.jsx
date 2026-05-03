@@ -15,6 +15,11 @@ export default function PayslipDetail() {
   const [activeTab, setActiveTab] = useState('worked-days');
   const [viewMode, setViewMode] = useState('VIEW'); // 'VIEW', 'DRAFT', 'COMPUTED'
   const [isUpdating, setIsUpdating] = useState(false);
+  const [showNewModal, setShowNewModal] = useState(false);
+  const [newMonth, setNewMonth] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [newError, setNewError] = useState('');
+  const [printing, setPrinting] = useState(false);
 
   const fetchPayslip = async () => {
     setLoading(true);
@@ -47,7 +52,27 @@ export default function PayslipDetail() {
   }, [id, location.search]);
 
   const handleNewPayslip = () => {
-    setViewMode('DRAFT');
+    setNewMonth('');
+    setNewError('');
+    setShowNewModal(true);
+  };
+
+  const handleNewPayslipSubmit = async () => {
+    if (!newMonth) { setNewError('Please select a month'); return; }
+    setCreating(true);
+    setNewError('');
+    try {
+      const res = await api.post('/payslips/new', {
+        employeeId: payslip.employeeId,
+        month: newMonth
+      });
+      setShowNewModal(false);
+      navigate(`/payroll/payslip/${res.payslipId}`);
+    } catch (e) {
+      setNewError(e.message || 'Failed to create payslip');
+    } finally {
+      setCreating(false);
+    }
   };
 
   const handleCompute = async () => {
@@ -55,131 +80,71 @@ export default function PayslipDetail() {
     try {
       if (id === 'new') {
         const query = new URLSearchParams(location.search);
-        await api.post('/payroll/process', { 
-           month: query.get('month'),
-           employeeId: query.get('employeeId')
-        });
-        setViewMode('COMPUTED');
-        fetchPayslip(); 
+        const employeeId = query.get('employeeId');
+        const month = query.get('month');
+        const res = await api.post('/payroll/process-individual', { employeeId, month });
+        alert('Salary computed successfully!');
+        navigate(`/payroll/payslip/${res.payslip.id}`);
       } else {
         const res = await api.post(`/payslips/${id}/compute`);
         setPayslip(res);
         setViewMode('COMPUTED');
+        alert('Salary computed successfully!');
       }
     } catch (err) {
-      alert('Compute failed: ' + err.message);
+      alert('Compute failed: ' + (err.message || 'Unknown error'));
     } finally {
       setIsUpdating(false);
     }
   };
 
   const handleValidate = async () => {
+    if (!window.confirm('Validate and lock this payslip? This action CANNOT be undone.')) return;
     setIsUpdating(true);
     try {
       await api.post(`/payslips/${payslip.id}/validate`);
       setViewMode('VIEW');
       fetchPayslip();
+      alert('Payslip validated and locked successfully!');
     } catch (err) {
-      alert('Validate failed: ' + err.message);
+      alert('Validate failed: ' + (err.message || 'Unknown error'));
     } finally {
       setIsUpdating(false);
     }
   };
 
   const handleCancel = async () => {
-    if (!window.confirm('Are you sure you want to cancel this payslip?')) return;
+    if (!window.confirm('Cancel this payslip? This action will mark it as CANCELLED.')) return;
     setIsUpdating(true);
     try {
-      if (payslip.id !== 'draft') {
-        await api.post(`/payslips/${payslip.id}/cancel`);
-      }
+      await api.patch(`/payslips/${payslip.id}/cancel`);
+      alert('Payslip cancelled successfully');
       navigate('/payroll/process');
     } catch (err) {
-      alert('Cancel failed: ' + err.message);
+      alert('Cancel failed: ' + (err.message || 'Unknown error'));
     } finally {
       setIsUpdating(false);
     }
   };
 
-  const handleDownloadPdf = () => {
-    alert('Preparing PDF Download...');
+  const handleDownloadPdf = async () => {
+    setPrinting(true);
     try {
-      if (!payslip) return alert('No payslip data found');
-      
-      const doc = new jsPDF();
-      const yr = payslip.year || new Date().getFullYear();
-      const mn = payslip.month || (new Date().getMonth() + 1);
-      const monthName = new Date(yr, mn - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
-      
-      // Header
-      doc.setFontSize(22);
-      doc.setTextColor(21, 128, 61); // brand-700
-      doc.text('EmPay', 105, 20, { align: 'center' });
-      doc.setFontSize(10);
-      doc.setTextColor(100);
-      doc.text('PAYSLIP - ' + monthName.toUpperCase(), 105, 28, { align: 'center' });
-      
-      // Employee Info
-      doc.setDrawColor(200);
-      doc.line(20, 35, 190, 35);
-      
-      doc.setFontSize(12);
-      doc.setTextColor(0);
-      doc.text(`Employee: ${payslip.employee?.firstName || ''} ${payslip.employee?.lastName || ''}`, 20, 45);
-      doc.text(`Designation: ${payslip.employee?.designation || 'Staff'}`, 20, 52);
-      
-      doc.text(`Period: 01 ${monthName} to 31 ${monthName}`, 120, 45);
-      doc.text(`Salary Structure: Regular Pay`, 120, 52);
-
-      const earnings = Array.isArray(payslip.earnings) ? payslip.earnings : [];
-      const deductions = Array.isArray(payslip.deductions) ? payslip.deductions : [];
-
-      // Earnings Table
-      const earningsData = earnings.map(e => [e.label, 'INR ' + (Number(e.amount) || 0).toLocaleString('en-IN')]);
-      autoTable(doc, {
-        startY: 65,
-        head: [['Earnings', 'Amount']],
-        body: [
-          ...earningsData,
-          [{ content: 'Gross Earnings', styles: { fontStyle: 'bold' } }, { content: 'INR ' + (Number(payslip.grossSalary) || 0).toLocaleString('en-IN'), styles: { fontStyle: 'bold' } }]
-        ],
-        theme: 'grid',
-        headStyles: { fillColor: [21, 128, 61] },
-        margin: { left: 20, right: 110 }
+      const res = await api.get(`/payslips/${payslip.id}/pdf`, {
+        responseType: 'blob'
       });
-
-      // Deductions Table
-      const deductionsData = deductions.map(d => [d.label, 'INR ' + (Number(d.amount) || 0).toLocaleString('en-IN')]);
-      autoTable(doc, {
-        startY: 65,
-        head: [['Deductions', 'Amount']],
-        body: [
-          ...deductionsData,
-          [{ content: 'Total Deductions', styles: { fontStyle: 'bold' } }, { content: 'INR ' + (Number(payslip.totalDeductions) || 0).toLocaleString('en-IN'), styles: { fontStyle: 'bold' } }]
-        ],
-        theme: 'grid',
-        headStyles: { fillColor: [185, 28, 28] },
-        margin: { left: 110, right: 20 }
-      });
-
-      // Net Salary
-      const finalY = Math.max(doc.lastAutoTable?.finalY || 65, 65);
-      doc.setFillColor(240, 253, 244); // green-50
-      doc.rect(20, finalY + 10, 170, 25, 'F');
-      doc.setFontSize(10);
-      doc.setTextColor(21, 128, 61);
-      doc.text('NET PAYABLE SALARY', 105, finalY + 20, { align: 'center' });
-      doc.setFontSize(18);
-      doc.text('INR ' + (Number(payslip.netSalary) || 0).toLocaleString('en-IN'), 105, finalY + 30, { align: 'center' });
-
-      doc.setFontSize(8);
-      doc.setTextColor(150);
-      doc.text(`Version ${payslip.version || 1} - System Generated on ${new Date().toLocaleDateString()}`, 105, finalY + 45, { align: 'center' });
-
-      doc.save(`Payslip_${payslip.employee?.lastName || 'Employee'}_${monthName.replace(' ', '_')}.pdf`);
-    } catch (error) {
-      console.error('PDF Generation Error:', error);
-      alert('Error generating PDF: ' + error.message);
+      
+      const url = window.URL.createObjectURL(new Blob([res]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Payslip_${payslip.employee?.lastName || 'Emp'}_${payslip.year}_${payslip.month}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+    } catch (err) {
+      alert('PDF generation failed: ' + (err.message || 'Unknown error'));
+    } finally {
+      setPrinting(false);
     }
   };
 
@@ -204,28 +169,42 @@ export default function PayslipDetail() {
         </button>
         <button 
           onClick={handleCompute}
-          disabled={viewMode !== 'DRAFT'}
+          disabled={isLocked || isUpdating}
           className={`px-6 py-1.5 rounded-full text-sm font-medium transition shadow-sm ${
-            viewMode === 'DRAFT' ? 'bg-[#D63384] text-white' : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+            !isLocked ? 'bg-[#D63384] text-white hover:opacity-90' : 'bg-gray-100 text-gray-400 cursor-not-allowed'
           }`}
         >
-          Compute
+          {isUpdating ? 'Computing...' : 'Compute'}
         </button>
         <button 
           onClick={handleValidate}
-          disabled={isLocked || viewMode === 'DRAFT' || payslip.id === 'draft'}
-          className="px-6 py-1.5 bg-[#ADB5BD] text-white rounded-full text-sm font-medium hover:opacity-90 transition shadow-sm disabled:opacity-50"
+          disabled={isLocked || payslip.status !== 'COMPUTED' || isUpdating}
+          className={`px-6 py-1.5 rounded-full text-sm font-medium transition shadow-sm ${
+            !isLocked && payslip.status === 'COMPUTED' ? 'bg-[#ADB5BD] text-white hover:opacity-90' : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+          }`}
         >
-          Validate
+          {isUpdating && payslip.status === 'COMPUTED' ? 'Validating...' : 'Validate'}
         </button>
-        {!isLocked && (
+        {!isLocked && payslip.status !== 'CANCELLED' && (
           <button 
             onClick={handleCancel}
-            className="px-6 py-1.5 bg-[#ADB5BD] text-white rounded-full text-sm font-medium hover:opacity-90 transition shadow-sm"
+            disabled={isUpdating}
+            className="px-6 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-full text-sm font-medium hover:bg-red-100 transition shadow-sm disabled:opacity-50"
           >
-            Cancel
+            {isUpdating && payslip.status !== 'COMPUTED' ? 'Cancelling...' : 'Cancel'}
           </button>
         )}
+        {isLocked && (
+          <span className="flex items-center text-xs text-gray-400 gap-1 italic">
+            <Lock className="h-3 w-3" /> Locked
+          </span>
+        )}
+        <button 
+          onClick={handleDownloadPdf}
+          className="px-6 py-1.5 bg-[#ADB5BD] text-white rounded-full text-sm font-medium hover:opacity-90 transition shadow-sm"
+        >
+          Download PDF
+        </button>
         <button 
           onClick={() => window.print()}
           className="px-6 py-1.5 bg-[#ADB5BD] text-white rounded-full text-sm font-medium hover:opacity-90 transition shadow-sm"
@@ -234,9 +213,26 @@ export default function PayslipDetail() {
         </button>
       </div>
 
+      {/* LOCKED BANNER */}
+      {isLocked && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3 text-amber-800 animate-fade-in shadow-sm">
+          <div className="p-2 bg-amber-100 rounded-lg">
+            <Lock className="h-5 w-5 text-amber-600" />
+          </div>
+          <p className="text-sm font-medium">
+            This payslip has been validated and is locked. Contact Admin to make changes.
+          </p>
+        </div>
+      )}
+
       <div className="print:mt-0 mt-4">
-        <div className="text-3xl font-medium text-gray-800 mb-6 tracking-tight">
+        <div className="text-3xl font-medium text-gray-800 mb-6 tracking-tight flex items-center gap-4">
           [{payslip.employee?.firstName} {payslip.employee?.lastName}]
+          {isLocked && (
+            <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold uppercase tracking-wider border border-green-200">
+              Done
+            </span>
+          )}
         </div>
 
         <div className="space-y-4 max-w-md">
@@ -295,25 +291,25 @@ export default function PayslipDetail() {
                 <tr>
                   <td className="py-4 px-4 text-gray-700 italic">Attendance</td>
                   <td className="py-4 px-4 text-gray-700">
-                    {viewMode === 'DRAFT' ? '' : `${payslip.paidDays || 20}.00 (5 working days in week)`}
+                    {payslip.status === 'DRAFT' ? '0.00' : `${payslip.paidDays || 0}.00`}
                   </td>
                   <td className="py-4 px-4 text-gray-700">
-                    {viewMode === 'DRAFT' ? '' : fmt(payslip.basicSalary)}
+                    {payslip.status === 'DRAFT' ? '₹ 0.00' : fmt(payslip.basicSalary)}
                   </td>
                 </tr>
                 <tr>
-                  <td className="py-4 px-4 text-gray-700 italic">Paid Time off</td>
-                  <td className="py-4 px-4 text-gray-700">
-                    {viewMode === 'DRAFT' ? '' : '2.00 (2 Paid leaves/Month)'}
+                  <td className="py-4 px-4 text-gray-700 italic">Unpaid Time off (LOP)</td>
+                  <td className="py-4 px-4 text-gray-700 text-red-600">
+                    {payslip.status === 'DRAFT' ? '0.00' : `${payslip.lopDays || 0}.00`}
                   </td>
-                  <td className="py-4 px-4 text-gray-700">
-                    {viewMode === 'DRAFT' ? '' : fmt(Number(payslip.grossSalary) - Number(payslip.basicSalary))}
+                  <td className="py-4 px-4 text-red-600">
+                    {payslip.status === 'DRAFT' ? '₹ 0.00' : `- ${fmt(Number(payslip.lopDeduction || 0))}`}
                   </td>
                 </tr>
                 <tr className="border-t-2 border-gray-100 font-bold">
-                  <td className="py-4 px-4 text-gray-900"></td>
-                  <td className="py-4 px-4 text-gray-900">{viewMode === 'DRAFT' ? '' : '22.00'}</td>
-                  <td className="py-4 px-4 text-gray-900">{viewMode === 'DRAFT' ? '' : fmt(payslip.grossSalary)}</td>
+                  <td className="py-4 px-4 text-gray-900">Total Worked Days</td>
+                  <td className="py-4 px-4 text-gray-900">{payslip.status === 'DRAFT' ? '0.00' : `${payslip.paidDays || 0}.00`}</td>
+                  <td className="py-4 px-4 text-gray-900">{payslip.status === 'DRAFT' ? '₹ 0.00' : fmt(payslip.grossSalary)}</td>
                 </tr>
               </tbody>
             </table>
@@ -334,7 +330,7 @@ export default function PayslipDetail() {
                   {Array.isArray(payslip.earnings) && payslip.earnings.map((e, idx) => (
                     <div key={idx} className="flex justify-between py-1 text-sm">
                       <span>{e.label}</span>
-                      <span>{viewMode === 'DRAFT' ? '' : fmt(e.amount)}</span>
+                      <span>{payslip.status === 'DRAFT' ? '₹ 0.00' : fmt(e.amount)}</span>
                     </div>
                   ))}
                 </div>
@@ -343,7 +339,7 @@ export default function PayslipDetail() {
                   {Array.isArray(payslip.deductions) && payslip.deductions.map((d, idx) => (
                     <div key={idx} className="flex justify-between py-1 text-sm">
                       <span>{d.label}</span>
-                      <span className="text-red-600">{viewMode === 'DRAFT' ? '' : fmt(d.amount)}</span>
+                      <span className="text-red-600">{payslip.status === 'DRAFT' ? '₹ 0.00' : fmt(d.amount)}</span>
                     </div>
                   ))}
                 </div>
@@ -351,7 +347,7 @@ export default function PayslipDetail() {
              <div className="flex justify-end pt-6 border-t mt-6">
                 <div className="text-right">
                   <span className="block text-sm text-gray-500 uppercase font-bold">Net Salary</span>
-                  <span className="text-3xl font-extrabold text-green-600">{viewMode === 'DRAFT' ? '' : fmt(payslip.netSalary)}</span>
+                  <span className="text-3xl font-extrabold text-green-600">{payslip.status === 'DRAFT' ? '₹ 0.00' : fmt(payslip.netSalary)}</span>
                 </div>
              </div>
           </div>
@@ -362,11 +358,59 @@ export default function PayslipDetail() {
       <div className="flex justify-end pt-8 border-t border-gray-100 print:hidden">
         <button 
           onClick={handleDownloadPdf}
-          className="px-6 py-2 bg-[#1B3022] text-white rounded-md text-sm font-medium hover:bg-[#1B3022]/90 transition shadow-md"
+          disabled={printing}
+          className="px-6 py-2 bg-[#1B3022] text-white rounded-md text-sm font-medium hover:bg-[#1B3022]/90 transition shadow-md flex items-center gap-2"
         >
-          Download PDF
+          {printing ? (
+            <>
+              <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Downloading...
+            </>
+          ) : 'Download PDF'}
         </button>
       </div>
+
+      {/* New Payslip Modal */}
+      {showNewModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <Card className="max-w-sm w-full p-6 shadow-2xl">
+            <h2 className="text-xl font-bold text-gray-800 mb-2">New Payslip</h2>
+            <p className="text-sm text-gray-600 mb-6">
+              Select the month to generate a new draft payslip for <strong>{payslip.employee?.firstName} {payslip.employee?.lastName}</strong>.
+            </p>
+            
+            <div className="mb-6">
+              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Select Month</label>
+              <input
+                type="month"
+                value={newMonth}
+                onChange={e => { setNewMonth(e.target.value); setNewError(''); }}
+                className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-[#D63384] focus:border-transparent outline-none transition-all"
+              />
+              {newError && <p className="text-red-500 text-xs mt-2 font-medium">{newError}</p>}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleNewPayslipSubmit}
+                disabled={creating}
+                className="flex-1 bg-[#D63384] text-white rounded-lg py-3 text-sm font-bold hover:opacity-90 transition disabled:opacity-50"
+              >
+                {creating ? 'Creating...' : 'Create Payslip'}
+              </button>
+              <button
+                onClick={() => setShowNewModal(false)}
+                className="flex-1 bg-gray-100 text-gray-600 rounded-lg py-3 text-sm font-bold hover:bg-gray-200 transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </Card>
+        </div>
+      )}
 
     </div>
   );

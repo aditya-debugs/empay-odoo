@@ -1,4 +1,5 @@
 const prisma = require('../config/prisma');
+const calculator = require('../domain/payroll/calculator');
 
 const getPayrollByMonth = async (month) => {
   return await prisma.payroll.findMany({
@@ -120,21 +121,27 @@ async function getPayrollDashboardData() {
   });
 
   const payruns = await Promise.all(payrunsRaw.map(async p => {
-    const [year, month] = p.month.split('-').map(Number);
-    const disputeCount = await prisma.payslipDispute.count({
-      where: {
-        payslip: {
-          month,
-          year
+    try {
+      if (!p.month) return null;
+      const [year, month] = p.month.split('-').map(Number);
+      const disputeCount = await prisma.payslipDispute.count({
+        where: {
+          payslip: {
+            month,
+            year
+          }
         }
-      }
-    });
-    return {
-      month: p.month,
-      payslipCount: p._count.id,
-      disputeCount
-    };
-  }));
+      });
+      return {
+        month: p.month,
+        payslipCount: p._count.id,
+        disputeCount
+      };
+    } catch (err) {
+      console.warn(`[Dashboard] Failed to process payrun data for ${p.month}:`, err.message);
+      return { month: p.month || 'Unknown', payslipCount: p._count?.id || 0, disputeCount: 0 };
+    }
+  })).then(results => results.filter(Boolean));
 
   // Last 6 months array helper
   const months = Array.from({ length: 6 }, (_, i) => {
@@ -145,20 +152,31 @@ async function getPayrollDashboardData() {
 
   // Employer cost per month (sum of grossSalary for PROCESSED payrolls)
   const employerCostData = await Promise.all(months.map(async m => {
-    const r = await prisma.payroll.aggregate({
-      _sum: { grossSalary: true },
-      where: { month: m, status: 'PROCESSED' }
-    });
-    return { month: m, amount: Number(r._sum.grossSalary || 0) };
+    try {
+      const r = await prisma.payroll.aggregate({
+        _sum: { grossSalary: true },
+        where: { month: m, status: 'PROCESSED' }
+      });
+      return { month: m, amount: Number(r._sum.grossSalary || 0) };
+    } catch (err) {
+      console.warn(`[Dashboard] Failed to fetch cost for ${m}:`, err.message);
+      return { month: m, amount: 0 };
+    }
   }));
 
   // Employee count per month
   const employeeCountData = await Promise.all(months.map(async m => {
-    const endOfMonth = new Date(m + '-28');
-    const count = await prisma.employee.count({
-      where: { joinDate: { lte: endOfMonth }, status: 'ACTIVE' }
-    });
-    return { month: m, count };
+    try {
+      const endOfMonth = new Date(m + '-28');
+      if (isNaN(endOfMonth.getTime())) throw new Error('Invalid date');
+      const count = await prisma.employee.count({
+        where: { joinDate: { lte: endOfMonth }, status: 'ACTIVE' }
+      });
+      return { month: m, count };
+    } catch (err) {
+      console.warn(`[Dashboard] Failed to fetch count for ${m}:`, err.message);
+      return { month: m, count: 0 };
+    }
   }));
 
   // This month payroll status
@@ -183,14 +201,15 @@ async function getPayrunSummary(month) {
       employee: { 
         select: { 
           firstName: true, 
-          lastName: true, 
-          loginId: true 
+          lastName: true
         } 
       } 
     }
   });
 
-  const [year, mInt] = month.split('-').map(Number);
+  const parts = month.split('-');
+  const year = parseInt(parts[0], 10);
+  const mInt = parseInt(parts[1], 10);
   const payslips = await prisma.payslip.findMany({
     where: { month: mInt, year: year }
   });
@@ -230,20 +249,32 @@ async function validatePayrun(month) {
   return { month, validated: result.count };
 }
 
-async function validatePayslip(id) {
+async function recomputePayslip(id) {
   const payslip = await prisma.payslip.findUnique({ where: { id } });
   if (!payslip) throw new Error('Payslip not found');
 
   const monthStr = `${payslip.year}-${String(payslip.month).padStart(2, '0')}`;
+  const result = await calculator.processPayrollForEmployee(payslip.employeeId, monthStr);
+  return result.payslip;
+}
+
+async function validatePayslip(id) {
+  const payslip = await prisma.payslip.findUnique({ where: { id } });
+  if (!payslip) throw new Error('Payslip not found');
+
+  if (payslip.status === 'GENERATED') throw new Error('Payslip is already validated');
+  if (payslip.status !== 'COMPUTED') throw new Error('Payslip must be computed before validating');
+
+  const monthStr = `${payslip.year}-${String(payslip.month).padStart(2, '0')}`;
   
-  await prisma.payroll.updateMany({
-    where: { employeeId: payslip.employeeId, month: monthStr },
+  await prisma.payroll.update({
+    where: { employeeId_month: { employeeId: payslip.employeeId, month: monthStr } },
     data: { status: 'LOCKED' }
   });
 
   return await prisma.payslip.update({
     where: { id },
-    data: { status: 'GENERATED' } // Or 'LOCKED' if you add it to enum
+    data: { status: 'GENERATED' }
   });
 }
 
@@ -308,6 +339,7 @@ module.exports = {
   getPayrollDashboardData,
   getPayrunSummary,
   validatePayrun,
+  recomputePayslip,
   validatePayslip,
   cancelPayslip,
   getDraftPayslip

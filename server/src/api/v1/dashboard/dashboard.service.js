@@ -46,6 +46,14 @@ async function getEmployeeDashboard(userId) {
     take: 1
   });
 
+  // Recent disputes
+  const recentDisputes = await prisma.payslipDispute.findMany({
+    where: { raisedById: userId },
+    include: { payslip: true },
+    orderBy: { createdAt: 'desc' },
+    take: 3
+  });
+
   // Recent employees for directory preview
   const recentEmployees = await prisma.employee.findMany({
     where: { status: 'ACTIVE' },
@@ -76,6 +84,14 @@ async function getEmployeeDashboard(userId) {
       netSalary: lastPayslip.netSalary,
       status: lastPayslip.status
     } : null,
+    recentDisputes: recentDisputes.map(d => ({
+      id: d.id,
+      month: d.payslip.month,
+      year: d.payslip.year,
+      reason: d.reason,
+      status: d.status,
+      createdAt: d.createdAt
+    })),
     recentEmployees
   };
 }

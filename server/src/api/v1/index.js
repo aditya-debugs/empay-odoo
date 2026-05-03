@@ -21,10 +21,12 @@ router.use('/employees',        require('./employees/employees.routes'));
 router.use('/attendance',       require('./attendance/attendance.routes'));
 router.use('/leave',            require('./leave/leave.routes'));
 router.use('/settings',         require('./settings/settings.routes'));
+router.use('/dashboard',        require('./dashboard/dashboard.routes'));
 
 // Unified Payroll Module (Phase 2)
 router.use('/', require('../payrollRoutes'));
 router.use('/reports',          require('./reports/reports.routes'));
 router.use('/upload',           require('./upload/upload.routes'));
+router.use('/payroll',          require('./payroll/payroll.routes'));
 
 module.exports = router;

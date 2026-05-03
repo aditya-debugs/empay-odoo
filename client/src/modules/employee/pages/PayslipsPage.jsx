@@ -54,6 +54,23 @@ export default function PayslipsPage() {
     }
   };
 
+  const formatINR = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val || 0);
+
+  const handleDownload = async (payslip) => {
+    try {
+      const response = await api.get(`/payslips/${payslip.id}/pdf`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `payslip_${payslip.year}_${payslip.month}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      setError('Failed to download PDF');
+    }
+  };
+
   if (loading) return <div className="p-8">Loading...</div>;
 
   return (
@@ -84,7 +101,7 @@ export default function PayslipsPage() {
                     </p>
                   </div>
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    payslip.status === 'GENERATED' ? 'bg-success-100 text-success-700' : 'bg-warning-100 text-warning-700'
+                    payslip.status === 'GENERATED' || payslip.status === 'LOCKED' ? 'bg-success-100 text-success-700' : 'bg-warning-100 text-warning-700'
                   }`}>
                     {payslip.status}
                   </span>
@@ -93,19 +110,19 @@ export default function PayslipsPage() {
                 <div className="space-y-3 mb-4 pb-4 border-b border-ink-200">
                   <div className="flex justify-between">
                     <span className="text-sm text-ink-muted">Basic Salary</span>
-                    <span className="text-sm font-semibold">${payslip.basicSalary?.toLocaleString()}</span>
+                    <span className="text-sm font-semibold">{formatINR(payslip.basicSalary)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-ink-muted">Gross Salary</span>
-                    <span className="text-sm font-semibold">${payslip.grossSalary?.toLocaleString()}</span>
+                    <span className="text-sm font-semibold">{formatINR(payslip.grossSalary)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-ink-muted">Total Deductions</span>
-                    <span className="text-sm font-semibold text-danger-600">-${payslip.totalDeductions?.toLocaleString()}</span>
+                    <span className="text-sm font-semibold text-danger-600">-{formatINR(payslip.totalDeductions)}</span>
                   </div>
                   <div className="flex justify-between bg-primary-50 p-2 rounded">
                     <span className="text-sm font-medium">Net Salary</span>
-                    <span className="text-sm font-bold text-primary-600">${payslip.netSalary?.toLocaleString()}</span>
+                    <span className="text-sm font-bold text-primary-600">{formatINR(payslip.netSalary)}</span>
                   </div>
                 </div>
 
@@ -114,7 +131,7 @@ export default function PayslipsPage() {
                     size="sm"
                     className="flex-1"
                     leftIcon={<Download className="h-3 w-3" />}
-                    disabled={!payslip.pdfUrl}
+                    onClick={() => handleDownload(payslip)}
                   >
                     Download PDF
                   </Button>

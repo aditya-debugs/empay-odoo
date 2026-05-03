@@ -17,7 +17,7 @@ export default function ProcessPayroll() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [month, setMonth] = useState(() => new Date().toISOString().substring(0, 10));
+  const [month, setMonth] = useState(() => new Date().toISOString().substring(0, 7));
   const [summary, setSummary] = useState(null);
   const [showSummaryTable, setShowSummaryTable] = useState(false);
 
@@ -33,9 +33,22 @@ export default function ProcessPayroll() {
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const [failedEmployees, setFailedEmployees] = useState([]);
+  const [processingIndividual, setProcessingIndividual] = useState(null);
 
-  const fmt = n => '₹' + Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2 });
-  const fmtMonth = m => new Date(m + '-01').toLocaleString('default', { month: 'short', year: 'numeric' });
+  const formatINR = (val) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(val || 0);
+  };
+
+  const fmtMonth = m => {
+    if (!m) return '—';
+    const [year, month] = m.split('-');
+    return new Date(year, month - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+  };
 
   // Load from URL query ?month= if present
   useEffect(() => {
@@ -111,6 +124,21 @@ export default function ProcessPayroll() {
     }
   };
 
+  const handleIndividualPayrun = async (employeeId, employeeName) => {
+    setProcessingIndividual(employeeId);
+    try {
+      await api.post('/payroll/process-individual', { employeeId, month });
+      setToastMessage(`✓ Payslip generated for ${employeeName}`);
+      fetchSummary();
+      // Optional: Refresh preview to show updated status if needed, 
+      // but usually individual payrun removes them from 'pending' preview or updates status.
+    } catch (e) {
+      setToastMessage(`Error for ${employeeName}: ${e.message}`);
+    } finally {
+      setProcessingIndividual(null);
+    }
+  };
+
   const executeValidate = async () => {
     setShowValidateConfirm(false);
     setIsValidating(true);
@@ -125,8 +153,6 @@ export default function ProcessPayroll() {
     }
   };
 
-  const formatINR = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val || 0);
-
   return (
     <div className="px-8 py-8 animate-fade-in space-y-6 relative">
 
@@ -138,23 +164,29 @@ export default function ProcessPayroll() {
       )}
 
       {/* ACTION BUTTONS ROW */}
-      <div className="flex gap-4">
-        <button
-          onClick={() => setShowConfirm(true)}
-          disabled={summary?.status === 'LOCKED' || isProcessing}
-          className="px-6 py-2 bg-[#D63384] text-white rounded-md font-medium hover:opacity-90 transition disabled:opacity-50 flex items-center gap-2"
-        >
-          {isProcessing && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
-          Payrun
-        </button>
-        <button
-          onClick={() => setShowValidateConfirm(true)}
-          disabled={!summary || summary.status !== 'PROCESSED' || isValidating}
-          className="px-6 py-2 bg-[#198754] text-white rounded-md font-medium hover:opacity-90 transition disabled:opacity-50 flex items-center gap-2"
-        >
-          {isValidating && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
-          Validate
-        </button>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900">Process Payroll</h1>
+          <p className="mt-1 text-sm text-gray-500 font-medium italic">Manage monthly salary cycles and validation</p>
+        </div>
+        <div className="flex gap-4">
+          <button
+            onClick={() => setShowConfirm(true)}
+            disabled={summary?.status === 'LOCKED' || isProcessing}
+            className="px-8 py-2.5 bg-[#D63384] text-white rounded-full text-sm font-bold hover:opacity-90 transition shadow-md flex items-center gap-2 disabled:bg-gray-300 disabled:cursor-not-allowed"
+          >
+            {isProcessing && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
+            Run Payrun
+          </button>
+          <button
+            onClick={() => setShowValidateConfirm(true)}
+            disabled={!summary || summary.status !== 'PROCESSED' || isValidating}
+            className="px-8 py-2.5 bg-[#198754] text-white rounded-full text-sm font-bold hover:opacity-90 transition shadow-md flex items-center gap-2 disabled:bg-gray-300 disabled:cursor-not-allowed"
+          >
+            {isValidating && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
+            Validate Cycle
+          </button>
+        </div>
       </div>
 
       {/* Header */}
@@ -167,7 +199,7 @@ export default function ProcessPayroll() {
       <Card className="p-6">
         <div className="flex flex-col sm:flex-row gap-4 items-center">
           <Input 
-            type="date" 
+            type="month" 
             value={month} 
             onChange={e => setMonth(e.target.value)}
             className="w-full sm:w-auto"
@@ -187,26 +219,38 @@ export default function ProcessPayroll() {
       {summary && (
         <div className="space-y-4">
           <Card
-            className="p-4 cursor-pointer hover:bg-gray-50 transition border-l-4 border-brand-600"
+            className={`p-5 cursor-pointer hover:shadow-md transition-all border-l-4 ${summary.status === 'LOCKED' ? 'border-blue-500 bg-blue-50/20' : 'border-[#D63384] bg-white'}`}
             onClick={() => setShowSummaryTable(!showSummaryTable)}
           >
             <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <span className="font-bold text-gray-900">Payrun {fmtMonth(month)}</span>
-                <span className="text-gray-500">|</span>
-                <span className="text-gray-700 font-medium">{fmt(summary.employerCost)} <span className="text-gray-400 font-normal">Employer Cost</span></span>
-                <span className="text-gray-500">|</span>
-                <span className="text-gray-700 font-medium">{fmt(summary.gross)} <span className="text-gray-400 font-normal">Gross</span></span>
-                <span className="text-gray-500">|</span>
-                <span className="text-gray-700 font-medium">{fmt(summary.net)} <span className="text-gray-400 font-normal">Net</span></span>
+              <div className="flex items-center gap-6">
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-0.5">Pay Period</span>
+                  <span className="font-bold text-gray-900 text-lg">{fmtMonth(month)}</span>
+                </div>
+                <div className="h-10 w-px bg-gray-100 mx-2"></div>
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-0.5">Employer Cost</span>
+                  <span className="text-gray-900 font-bold">{formatINR(summary.employerCost)}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-0.5">Gross Total</span>
+                  <span className="text-gray-900 font-bold">{formatINR(summary.gross)}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-0.5">Net Payout</span>
+                  <span className="text-green-600 font-extrabold">{formatINR(summary.net)}</span>
+                </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-4">
                 {summary.status === 'PROCESSED' ? (
-                  <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-bold rounded-full">Done</span>
+                  <span className="px-4 py-1 bg-green-100 text-green-700 text-[10px] font-black uppercase tracking-wider rounded-full border border-green-200">Done</span>
                 ) : summary.status === 'LOCKED' ? (
-                  <span className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded-full">Validated</span>
-                ) : null}
-                <span className="text-gray-400">{showSummaryTable ? '▲' : '▼'}</span>
+                  <span className="px-4 py-1 bg-blue-100 text-blue-700 text-[10px] font-black uppercase tracking-wider rounded-full border border-blue-200">Validated</span>
+                ) : (
+                  <span className="px-4 py-1 bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-wider rounded-full border border-amber-200">Draft</span>
+                )}
+                <span className={`text-gray-400 transition-transform ${showSummaryTable ? 'rotate-180' : ''}`}>▼</span>
               </div>
             </div>
           </Card>
@@ -237,21 +281,21 @@ export default function ProcessPayroll() {
                             navigate(`/payroll/payslip/new?employeeId=${p.employeeId}&month=${month}`);
                           }
                         }}
-                        className="hover:bg-gray-50 cursor-pointer transition"
+                        className="hover:bg-gray-50/80 cursor-pointer transition-colors border-b border-gray-50 last:border-0"
                       >
-                        <td className="px-6 py-4 text-sm text-gray-500">[{fmtMonth(month)}]</td>
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900">[{p.employeeName}]</td>
-                        <td className="px-6 py-4 text-sm text-gray-500">{fmt(p.employerCost)}</td>
-                        <td className="px-6 py-4 text-sm text-gray-500">{fmt(p.basicWage)}</td>
-                        <td className="px-6 py-4 text-sm text-gray-500">{fmt(p.grossWage)}</td>
-                        <td className={`px-6 py-4 text-sm font-bold ${p.cappedAtZero ? 'text-red-600' : 'text-gray-900'}`}>
-                          {fmt(p.netWage)}
+                        <td className="px-6 py-4 text-xs font-bold text-gray-400">[{month}]</td>
+                        <td className="px-6 py-4 text-sm font-bold text-gray-900">{p.employeeName}</td>
+                        <td className="px-6 py-4 text-sm text-gray-600 font-medium">{formatINR(p.employerCost)}</td>
+                        <td className="px-6 py-4 text-sm text-gray-500">{formatINR(p.basicWage)}</td>
+                        <td className="px-6 py-4 text-sm text-gray-500">{formatINR(p.grossWage)}</td>
+                        <td className={`px-6 py-4 text-sm font-black ${p.cappedAtZero ? 'text-amber-600' : 'text-green-600'}`}>
+                          {formatINR(p.netWage)}
                         </td>
                         <td className="px-6 py-4">
                           {p.status === 'PROCESSED' ? (
-                            <span className="px-2 py-0.5 text-xs font-bold bg-green-100 text-green-800 rounded-full">Done</span>
+                            <span className="px-2.5 py-0.5 text-[10px] font-black bg-green-50 text-green-600 rounded-full border border-green-100">DONE</span>
                           ) : (
-                            <span className="px-2 py-0.5 text-xs font-bold bg-blue-100 text-blue-800 rounded-full">Validated</span>
+                            <span className="px-2.5 py-0.5 text-[10px] font-black bg-blue-50 text-blue-600 rounded-full border border-blue-100">VALIDATED</span>
                           )}
                         </td>
                       </tr>
@@ -396,7 +440,7 @@ export default function ProcessPayroll() {
                       <td className="px-6 py-4">
                         <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">PREVIEW</span>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 flex gap-2">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -405,6 +449,17 @@ export default function ProcessPayroll() {
                           className="text-brand-600 hover:text-brand-900 font-bold text-sm bg-brand-50 px-3 py-1 rounded border border-brand-200"
                         >
                           View Detail
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleIndividualPayrun(row.employeeId, row.employeeName);
+                          }}
+                          disabled={processingIndividual === row.employeeId || isProcessing}
+                          className="px-3 py-1 bg-teal-600 text-white rounded text-sm font-medium hover:bg-teal-700 transition disabled:opacity-50 flex items-center gap-1"
+                        >
+                          {processingIndividual === row.employeeId && <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
+                          Payrun
                         </button>
                       </td>
                     </tr>
