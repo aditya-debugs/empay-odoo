@@ -4,6 +4,9 @@ const { requireAuth, requireRole } = require('../../../middleware/auth');
 
 const router = Router();
 
+// Root dashboard route — redirects to specific logic based on role
+router.get('/', requireAuth, ctrl.getDashboard);
+
 // GET /employee — Employee dashboard [EMPLOYEE]
 router.get('/employee', requireAuth, requireRole('EMPLOYEE'), ctrl.getEmployeeDashboard);
 

@@ -15,8 +15,14 @@ export default function PayrollDashboard() {
   const [costView, setCostView] = useState('monthly'); // 'monthly' or 'annually'
   const [countView, setCountView] = useState('monthly'); // 'monthly' or 'annually'
 
-  const fmt = n => '₹' + Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2 });
-  const fmtMonth = m => new Date(m + '-01').toLocaleString('default', { month: 'short', year: 'numeric' });
+  const fmt = n => '₹' + Number(n).toLocaleString('en-IN', { minimumFractionDigits: 0 });
+  const fmtMonth = m => {
+    if (!m) return '';
+    const parts = m.split('-');
+    if (parts.length < 2) return m;
+    const d = new Date(parts[0], parts[1] - 1);
+    return d.toLocaleString('default', { month: 'short', year: 'numeric' });
+  };
   const fmtCompact = n => '₹' + (n >= 1000 ? (n / 1000).toFixed(0) + 'K' : n);
 
   const fetchDashboard = () => {
@@ -38,19 +44,6 @@ export default function PayrollDashboard() {
       navigate('/employee/payslips', { replace: true });
     }
   }, [user, navigate]);
-
-  const fetchDashboard = () => {
-    setLoading(true);
-    setError(null);
-    api.get('/dashboard/payroll')
-      .then(res => {
-        setData(res);
-      })
-      .catch(err => {
-        setError(err.message || 'Failed to load dashboard.');
-      })
-      .finally(() => setLoading(false));
-  };
 
   useEffect(() => {
     fetchDashboard();
@@ -177,8 +170,8 @@ export default function PayrollDashboard() {
               </button>
             </div>
           </div>
-          <div className="flex-grow">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="flex-grow h-0">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={50}>
               <BarChart data={filteredCostData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                 <XAxis 
@@ -225,8 +218,8 @@ export default function PayrollDashboard() {
               </button>
             </div>
           </div>
-          <div className="flex-grow">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="flex-grow h-0">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={50}>
               <BarChart data={filteredCountData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                 <XAxis 

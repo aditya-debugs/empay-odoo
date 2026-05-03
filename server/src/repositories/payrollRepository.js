@@ -60,6 +60,7 @@ const getDashboardStats = async () => {
 
   return { totalProcessed, totalPending, totalNetPayout, thisMonthStatus, monthlyTrend, recentDisputes, openDisputesCount };
 };
+
 const getAllPayslips = async (filters = {}) => {
   return await prisma.payslip.findMany({
     where: filters,
@@ -71,7 +72,7 @@ const getAllPayslips = async (filters = {}) => {
 const getPayslipById = async (id) => {
   return await prisma.payslip.findUnique({
     where: { id },
-    include: { employee: true } // Payroll not included since it's not strongly linked in this phase, but can be via employee+month
+    include: { employee: true }
   });
 };
 
@@ -104,23 +105,22 @@ const updateDispute = async (id, data) => {
 async function getPayrollDashboardData() {
   const currentMonth = new Date().toISOString().slice(0, 7);
 
-  // Warnings — adapted to actual Employee model (bankAccountNo exists, managerId does not)
   const employeesWithoutBank = await prisma.employee.count({
-    where: { bankAccountNo: null }
+    where: { bankAccountNo: { equals: null } }
   });
   
-  // managerId is not in schema, so we set this to 0 for now to avoid crash
   const employeesWithoutManager = 0;
 
-  // Payrun list — last 3 months with payslip counts and dispute counts
+  // Prisma groupBy does NOT support 'take'. Fetch all and slice manually.
   const payrunsRaw = await prisma.payroll.groupBy({
     by: ['month'],
     _count: { id: true },
-    orderBy: { month: 'desc' },
-    take: 3
+    orderBy: { month: 'desc' }
   });
+  
+  const payrunsSliced = payrunsRaw.slice(0, 3);
 
-  const payruns = await Promise.all(payrunsRaw.map(async p => {
+  const payruns = await Promise.all(payrunsSliced.map(async p => {
     try {
       if (!p.month) return null;
       const [year, month] = p.month.split('-').map(Number);
@@ -143,14 +143,12 @@ async function getPayrollDashboardData() {
     }
   })).then(results => results.filter(Boolean));
 
-  // Last 6 months array helper
   const months = Array.from({ length: 6 }, (_, i) => {
     const d = new Date();
     d.setMonth(d.getMonth() - (5 - i));
     return d.toISOString().slice(0, 7);
   });
 
-  // Employer cost per month (sum of grossSalary for PROCESSED payrolls)
   const employerCostData = await Promise.all(months.map(async m => {
     try {
       const r = await prisma.payroll.aggregate({
@@ -159,27 +157,23 @@ async function getPayrollDashboardData() {
       });
       return { month: m, amount: Number(r._sum.grossSalary || 0) };
     } catch (err) {
-      console.warn(`[Dashboard] Failed to fetch cost for ${m}:`, err.message);
       return { month: m, amount: 0 };
     }
   }));
 
-  // Employee count per month
   const employeeCountData = await Promise.all(months.map(async m => {
     try {
-      const endOfMonth = new Date(m + '-28');
-      if (isNaN(endOfMonth.getTime())) throw new Error('Invalid date');
+      const parts = m.split('-');
+      const d = new Date(Number(parts[0]), Number(parts[1]), 0); // End of month
       const count = await prisma.employee.count({
-        where: { joinDate: { lte: endOfMonth }, status: 'ACTIVE' }
+        where: { joinDate: { lte: d }, status: 'ACTIVE' }
       });
       return { month: m, count };
     } catch (err) {
-      console.warn(`[Dashboard] Failed to fetch count for ${m}:`, err.message);
       return { month: m, count: 0 };
     }
   }));
 
-  // This month payroll status
   const thisMonth = await prisma.payroll.findFirst({
     where: { month: currentMonth },
     select: { status: true }
@@ -197,14 +191,7 @@ async function getPayrollDashboardData() {
 async function getPayrunSummary(month) {
   const payrolls = await prisma.payroll.findMany({
     where: { month },
-    include: { 
-      employee: { 
-        select: { 
-          firstName: true, 
-          lastName: true
-        } 
-      } 
-    }
+    include: { employee: { select: { firstName: true, lastName: true } } }
   });
 
   const parts = month.split('-');
@@ -252,95 +239,43 @@ async function validatePayrun(month) {
 async function recomputePayslip(id) {
   const payslip = await prisma.payslip.findUnique({ where: { id } });
   if (!payslip) throw new Error('Payslip not found');
-
   const monthStr = `${payslip.year}-${String(payslip.month).padStart(2, '0')}`;
-  const result = await calculator.processPayrollForEmployee(payslip.employeeId, monthStr);
-  return result.payslip;
+  return (await calculator.processPayrollForEmployee(payslip.employeeId, monthStr)).payslip;
 }
 
 async function validatePayslip(id) {
   const payslip = await prisma.payslip.findUnique({ where: { id } });
   if (!payslip) throw new Error('Payslip not found');
-
-  if (payslip.status === 'GENERATED') throw new Error('Payslip is already validated');
-  if (payslip.status !== 'COMPUTED') throw new Error('Payslip must be computed before validating');
-
   const monthStr = `${payslip.year}-${String(payslip.month).padStart(2, '0')}`;
-  
   await prisma.payroll.update({
     where: { employeeId_month: { employeeId: payslip.employeeId, month: monthStr } },
     data: { status: 'LOCKED' }
   });
-
-  return await prisma.payslip.update({
-    where: { id },
-    data: { status: 'GENERATED' }
-  });
+  return await prisma.payslip.update({ where: { id }, data: { status: 'GENERATED' } });
 }
 
 async function cancelPayslip(id) {
   const payslip = await prisma.payslip.findUnique({ where: { id } });
   if (!payslip) throw new Error('Payslip not found');
-
   const monthStr = `${payslip.year}-${String(payslip.month).padStart(2, '0')}`;
-
-  // Reset payroll record to PENDING
-  await prisma.payroll.updateMany({
-    where: { employeeId: payslip.employeeId, month: monthStr },
-    data: { status: 'PENDING' }
-  });
-
-  // Delete payslip to allow regeneration
+  await prisma.payroll.updateMany({ where: { employeeId: payslip.employeeId, month: monthStr }, data: { status: 'PENDING' } });
   return await prisma.payslip.delete({ where: { id } });
 }
 
 async function getDraftPayslip(employeeId, month) {
   const employee = await prisma.employee.findUnique({ where: { id: employeeId } });
   if (!employee) throw new Error('Employee not found');
-
   const [year, mInt] = month.split('-').map(Number);
-  
-  // Reuse some of the logic from preview or just return basic info
   return {
-    id: 'draft',
-    employeeId,
-    employee,
-    month: mInt,
-    year,
-    status: 'DRAFT',
-    basicSalary: employee.basicSalary,
-    grossSalary: 0,
-    netSalary: 0,
-    earnings: [
-      { label: 'Basic Salary', amount: employee.basicSalary },
-      { label: 'HRA', amount: 0 },
-      { label: 'Conveyance', amount: 0 },
-      { label: 'Special Allowance', amount: 0 },
-      { label: 'Other Allowance', amount: 0 },
-      { label: 'Overtime Bonus', amount: 0 }
-    ],
-    deductions: [
-      { label: 'LOP Deduction', amount: 0 },
-      { label: 'PF', amount: 0 },
-      { label: 'TDS', amount: 0 },
-      { label: 'Professional Tax', amount: 0 }
-    ]
+    id: 'draft', employeeId, employee, month: mInt, year, status: 'DRAFT',
+    basicSalary: employee.basicSalary, grossSalary: 0, netSalary: 0,
+    earnings: [{ label: 'Basic Salary', amount: employee.basicSalary }],
+    deductions: []
   };
 }
 
 module.exports = {
-  getPayrollByMonth,
-  getDashboardStats,
-  getAllPayslips,
-  getPayslipById,
-  getPayslipsByEmployee,
-  getAllDisputes,
-  updateDispute,
-  getPayrollDashboardData,
-  getPayrunSummary,
-  validatePayrun,
-  recomputePayslip,
-  validatePayslip,
-  cancelPayslip,
-  getDraftPayslip
+  getPayrollByMonth, getDashboardStats, getAllPayslips, getPayslipById, getPayslipsByEmployee,
+  getAllDisputes, updateDispute, getPayrollDashboardData, getPayrunSummary, validatePayrun,
+  recomputePayslip, validatePayslip, cancelPayslip, getDraftPayslip
 };

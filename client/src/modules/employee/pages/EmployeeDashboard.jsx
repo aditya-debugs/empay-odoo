@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../../features/auth/AuthContext';
 import { Card, Button } from '../../../features/ui';
-import { Calendar, Clock, Users, User, ArrowUpRight } from 'lucide-react';
+import { Calendar, Clock, Users, User, AlertCircle } from 'lucide-react';
 import api from '../../../services/api';
 
 export default function EmployeeDashboard() {
@@ -34,7 +34,8 @@ export default function EmployeeDashboard() {
 
     setSubmitting(true);
     try {
-      await api.post(`/payslips/${dashboard.lastPayslip.id}/dispute`, {
+      await api.post(`/payslip-disputes`, {
+        payslipId: dashboard.lastPayslip.id,
         reason: disputeReason
       });
       setDisputeReason('');
@@ -52,7 +53,7 @@ export default function EmployeeDashboard() {
 
   return (
     <div className="min-h-screen bg-surface-muted/30">
-      {/* Refined Header - Professional Sizing */}
+      {/* Header */}
       <div className="bg-brand-600 px-8 py-10 text-white">
         <div className="flex items-center justify-between max-w-7xl mx-auto">
           <div>
@@ -68,67 +69,40 @@ export default function EmployeeDashboard() {
       </div>
 
       <div className="px-8 -mt-6 pb-12 max-w-7xl mx-auto space-y-6">
-        {/* Core Metrics Grid - Normal Font Sizes */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          {/* Attendance Widget */}
-          <Card className="p-5 border-none shadow-sm hover:shadow-md transition-all group">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-ink-soft">Active Presence</p>
-                <div className="flex items-baseline gap-1 mt-1">
-                  <p className="text-xl font-bold text-ink">{dashboard?.attendance?.present || 0}</p>
-                  <p className="text-[10px] text-ink-soft">Days</p>
-                </div>
-              </div>
-              <div className="p-2.5 bg-brand-50 rounded-lg group-hover:scale-110 transition-transform">
-                <Clock className="h-5 w-5 text-brand-600" />
-              </div>
-            </div>
-          </Card>
-
-          {/* Absent Days Widget */}
-          <Card className="p-5 border-none shadow-sm hover:shadow-md transition-all group">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-ink-soft">Recorded Absence</p>
-                <div className="flex items-baseline gap-1 mt-1">
-                  <p className="text-xl font-bold text-ink">{dashboard?.attendance?.absent || 0}</p>
-                  <p className="text-[10px] text-ink-soft">Days</p>
-                </div>
-              </div>
-              <div className="p-2.5 bg-danger-50 rounded-lg group-hover:scale-110 transition-transform">
-                <Calendar className="h-5 w-5 text-danger-600" />
-              </div>
-            </div>
-          </Card>
-
-          {/* Total Hours Widget */}
-          <Card className="p-5 border-none shadow-sm hover:shadow-md transition-all group">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-ink-soft">Work Efficiency</p>
-                <div className="flex items-baseline gap-1 mt-1">
-                  <p className="text-xl font-bold text-ink">{dashboard?.attendance?.totalHours || '0.0'}</p>
-                  <p className="text-[10px] text-ink-soft">Hours Logged</p>
-                </div>
-              </div>
-              <Clock className="h-10 w-10 text-success-500" />
-            </div>
-          </Card>
-
-          {/* Basic Salary Widget */}
-          <Card className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-ink-muted">Monthly Salary</p>
-                <p className="text-2xl font-semibold mt-1">${dashboard?.employee?.basicSalary?.toLocaleString()}</p>
-              </div>
-            </div>
-          </Card>
+        {/* Core Metrics Grid */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+          <MetricCard 
+            label="Active Presence" 
+            value={dashboard?.attendance?.present || 0} 
+            unit="Days" 
+            icon={<Clock className="h-5 w-5 text-brand-600" />} 
+            bg="bg-brand-50"
+          />
+          <MetricCard 
+            label="Recorded Absence" 
+            value={dashboard?.attendance?.absent || 0} 
+            unit="Days" 
+            icon={<Calendar className="h-5 w-5 text-danger-600" />} 
+            bg="bg-danger-50"
+          />
+          <MetricCard 
+            label="Work Efficiency" 
+            value={dashboard?.attendance?.totalHours || '0.0'} 
+            unit="Hours" 
+            icon={<Zap className="h-5 w-5 text-success-600" />} 
+            bg="bg-success-50"
+          />
+          <MetricCard 
+            label="Monthly Salary" 
+            value={dashboard?.employee?.basicSalary ? `₹${dashboard.employee.basicSalary.toLocaleString('en-IN')}` : '₹0'} 
+            unit="" 
+            icon={<User className="h-5 w-5 text-primary-600" />} 
+            bg="bg-primary-50"
+          />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Leave Balances - Left 2 Columns */}
+          {/* Leave Balances */}
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-bold uppercase tracking-widest text-ink-soft">Leave Entitlements</h2>
@@ -150,193 +124,113 @@ export default function EmployeeDashboard() {
                        </div>
                     </div>
                   </div>
-                  <div>
-                    <p className="text-xs text-ink-muted">Used</p>
-                    <p className="text-lg font-semibold">{leave.used}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-ink-muted">Available</p>
-                    <p className="text-lg font-semibold text-success-600">{leave.available}</p>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-
-        {/* Last Payslip */}
-        {dashboard?.lastPayslip && (
-          <div className="mt-8">
-            <h2 className="text-xl font-semibold mb-4">Last Payslip</h2>
-            <Card className="p-6">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                <div>
-                  <p className="text-sm text-ink-muted">Month</p>
-                  <p className="text-lg font-semibold mt-1">{dashboard.lastPayslip.month}/{dashboard.lastPayslip.year}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-ink-muted">Net Salary</p>
-                  <p className="text-lg font-semibold mt-1">${dashboard.lastPayslip.netSalary?.toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-ink-muted">Status</p>
-                  <p className="text-lg font-semibold mt-1 text-success-600">{dashboard.lastPayslip.status}</p>
-                </div>
-              </div>
-              <div className="mt-6 flex justify-end">
-                <Button 
-                  size="sm" 
-                  variant="secondary" 
-                  className="text-danger-600 hover:bg-danger-50 border-danger-100"
-                  onClick={() => setShowDisputeForm(true)}
-                >
-                  Report Issue
-                </Button>
-              </div>
-            </Card>
-          </div>
-        )}
-
-        {/* My Recent Issues */}
-        {dashboard?.recentDisputes?.length > 0 && (
-          <div className="mt-8">
-            <h2 className="text-xl font-semibold mb-4">My Recent Issues</h2>
-            <div className="space-y-4">
-              {dashboard.recentDisputes.map((dispute) => (
-                <Card key={dispute.id} className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className={`p-2 rounded-lg ${
-                        dispute.status === 'RESOLVED' ? 'bg-success-50 text-success-600' : 
-                        dispute.status === 'REJECTED' ? 'bg-danger-50 text-danger-600' :
-                        'bg-warning-50 text-warning-600'
-                      }`}>
-                        <AlertCircle className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <p className="font-medium">Issue for {dispute.month}/{dispute.year}</p>
-                        <p className="text-xs text-ink-muted line-clamp-1">{dispute.reason}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium uppercase tracking-wider ${
-                        dispute.status === 'RESOLVED' ? 'bg-success-100 text-success-700' :
-                        dispute.status === 'REJECTED' ? 'bg-danger-100 text-danger-700' :
-                        'bg-warning-100 text-warning-700'
-                      }`}>
-                        {dispute.status.replace('_', ' ')}
-                      </span>
-                      <p className="text-[10px] text-ink-muted mt-1">
-                        {new Date(dispute.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Employee Directory Preview */}
-        {dashboard?.recentEmployees && (
-          <div className="mt-8">
-            <h2 className="text-xl font-semibold mb-4">Team Members</h2>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-6">
-              {dashboard.recentEmployees.map((emp) => (
-                <Card key={emp.id} className="p-4 text-center">
-                  <div className="h-12 w-12 rounded-full bg-primary-100 mx-auto flex items-center justify-center mb-2">
-                    <Users className="h-6 w-6 text-primary-600" />
-                  </div>
-                  <p className="font-medium text-sm">{emp.user?.name}</p>
-                  <p className="text-xs text-ink-muted mt-1">{emp.position}</p>
                 </Card>
               ))}
             </div>
           </div>
 
-          {/* Last Transaction Info - Right Column */}
+          {/* Last Payslip Sidebar */}
           <div className="space-y-4">
-            <h2 className="text-sm font-bold uppercase tracking-widest text-ink-soft">Latest Records</h2>
-            <Card className="p-5 border-none shadow-sm bg-white divide-y divide-border">
+            <h2 className="text-sm font-bold uppercase tracking-widest text-ink-soft">Latest Record</h2>
+            <Card className="p-5 border-none shadow-sm bg-white">
               {dashboard?.lastPayslip ? (
-                <>
-                  <div className="pb-4">
-                    <div className="flex justify-between items-start mb-4">
+                <div className="space-y-4">
+                  <div className="flex justify-between items-start">
+                    <div>
                       <p className="text-xs font-bold text-ink">Recent Payslip</p>
-                      <span className="px-2 py-0.5 bg-success-50 text-success-600 text-[9px] font-bold rounded-full uppercase tracking-tighter">Verified</span>
+                      <p className="text-[10px] text-ink-soft">{dashboard.lastPayslip.month}/{dashboard.lastPayslip.year}</p>
                     </div>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="text-ink-soft">Period</span>
-                      <span className="font-bold text-ink">{dashboard.lastPayslip.month}/{dashboard.lastPayslip.year}</span>
+                    <span className="px-2 py-0.5 bg-success-50 text-success-600 text-[9px] font-bold rounded-full uppercase">Verified</span>
+                  </div>
+                  <div className="flex justify-between items-end border-t border-border pt-4">
+                    <div>
+                      <p className="text-[10px] text-ink-soft uppercase tracking-wider">Net Payable</p>
+                      <p className="text-xl font-black text-brand-600">₹{dashboard.lastPayslip.netSalary?.toLocaleString('en-IN')}</p>
                     </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-ink-soft">Status</span>
-                      <span className="font-bold text-brand-600 uppercase text-[10px]">{dashboard.lastPayslip.status}</span>
-                    </div>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="text-[10px] h-8 text-danger-600 hover:bg-danger-50"
+                      onClick={() => setShowDisputeForm(true)}
+                    >
+                      Report Issue
+                    </Button>
                   </div>
-                  <div>
-                    <p className="text-sm text-ink-muted">Net Salary</p>
-                    <p className="text-lg font-semibold mt-1">&#8377;{dashboard.lastPayslip.netSalary?.toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-ink-muted">Status</p>
-                    <p className="text-lg font-semibold mt-1 text-success-600">{dashboard.lastPayslip.status}</p>
-                  </div>
-                </>
-              ) : null}
+                </div>
+              ) : (
+                <p className="text-sm text-ink-muted italic py-4 text-center">No payslip records yet.</p>
+              )}
             </Card>
           </div>
         </div>
+
+        {/* Recent Disputes */}
+        {dashboard?.recentDisputes?.length > 0 && (
+          <div className="space-y-4">
+            <h2 className="text-sm font-bold uppercase tracking-widest text-ink-soft">My Recent Inquiries</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {dashboard.recentDisputes.map((dispute) => (
+                <Card key={dispute.id} className="p-4 flex items-center justify-between border-l-4 border-l-brand-500">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-brand-50 rounded-lg">
+                      <AlertCircle className="h-4 w-4 text-brand-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-ink">Issue: {dispute.reason}</p>
+                      <p className="text-[10px] text-ink-soft">Status: {dispute.status}</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-medium text-ink-muted">{new Date(dispute.createdAt).toLocaleDateString()}</span>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Report Issue Modal */}
       {showDisputeForm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in p-4">
-          <Card className="max-w-md w-full p-6 shadow-2xl">
+        <div className="fixed inset-0 bg-ink/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <Card className="max-w-md w-full p-6 shadow-2xl border-none animate-in zoom-in duration-200">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 bg-danger-50 rounded-lg text-danger-600">
                 <AlertCircle className="h-6 w-6" />
               </div>
-              <h3 className="text-lg font-bold text-gray-900">Report Payroll Issue</h3>
+              <h3 className="text-lg font-bold text-ink">Report Payroll Issue</h3>
             </div>
             
-            <p className="text-sm text-gray-600 mb-6">
+            <p className="text-sm text-ink-soft mb-6">
               Reporting for <strong>{dashboard?.lastPayslip?.month}/{dashboard?.lastPayslip?.year}</strong>. 
-              Our payroll team will review your concern and get back to you.
+              Our payroll team will review your concern.
             </p>
 
-            <form onSubmit={handleReportIssue}>
-              <div className="mb-6">
-                <label className="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">
-                  Describe the issue
-                </label>
-                <textarea
-                  value={disputeReason}
-                  onChange={(e) => setDisputeReason(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none transition-all resize-none h-32 text-gray-800 placeholder:text-gray-400"
-                  placeholder="e.g. Salary was calculated incorrectly for 2 days..."
-                  required
-                />
-              </div>
+            <form onSubmit={handleReportIssue} className="space-y-4">
+              <textarea
+                value={disputeReason}
+                onChange={(e) => setDisputeReason(e.target.value)}
+                className="w-full px-4 py-3 bg-surface-muted border border-border-strong rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 h-32 resize-none"
+                placeholder="Describe the issue explicitly..."
+                required
+              />
 
-              <div className="flex gap-3">
-                <Button
-                  type="submit"
-                  className="flex-1 bg-brand-600 hover:bg-brand-700 text-white font-bold py-3"
-                  loading={submitting}
-                >
-                  Submit Report
-                </Button>
+              <div className="flex gap-2 pt-2">
                 <Button
                   type="button"
                   variant="secondary"
-                  className="px-6 font-bold text-gray-600 border-gray-200"
+                  className="flex-1 font-bold"
                   onClick={() => {
                     setShowDisputeForm(false);
                     setDisputeReason('');
                   }}
                 >
                   Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 font-bold shadow-lg"
+                  loading={submitting}
+                >
+                  Submit Report
                 </Button>
               </div>
             </form>
@@ -347,7 +241,25 @@ export default function EmployeeDashboard() {
   );
 }
 
-// Minimal Zap Icon helper for the worked hours widget
+function MetricCard({ label, value, unit, icon, bg }) {
+  return (
+    <Card className="p-5 border-none shadow-sm hover:shadow-md transition-all group">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-ink-soft">{label}</p>
+          <div className="flex items-baseline gap-1 mt-1">
+            <p className="text-xl font-bold text-ink">{value}</p>
+            {unit && <p className="text-[10px] text-ink-soft">{unit}</p>}
+          </div>
+        </div>
+        <div className={`p-2.5 ${bg} rounded-lg group-hover:scale-110 transition-transform`}>
+          {icon}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 function Zap({ className }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>

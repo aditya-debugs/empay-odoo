@@ -4,6 +4,7 @@ import { Card } from '../../../features/ui';
 import api from '../../../services/api';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { Lock } from 'lucide-react';
 
 export default function PayslipDetail() {
   const { id } = useParams();

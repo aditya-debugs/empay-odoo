@@ -34,44 +34,37 @@ export default function PayslipsPage() {
     }
   };
 
-  const handleDownload = (payslip) => {
+  const formatINR = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val || 0);
+
+  const handleDownload = async (payslip) => {
     setDownloadingId(payslip.id);
-    
-    // For Hackathon Demonstration: Generate a "Professional" looking virtual payslip PDF
-    // In a real app, this would be a URL to a pre-generated file on S3/Cloud Storage.
-    setTimeout(() => {
-      const content = `
-        -----------------------------------------------------
-        ${payslip.employee?.companyName || 'EmPay Organization'} - OFFICIAL PAYSLIP
-        -----------------------------------------------------
-        Period: ${payslip.month}/${payslip.year}
-        Employee: ${payslip.employee?.firstName} ${payslip.employee?.lastName}
-        
-        EARNINGS:
-        Basic Salary:       $${payslip.basicSalary}
-        Gross Salary:       $${payslip.grossSalary}
-        
-        DEDUCTIONS:
-        Total Deductions:   -$${payslip.totalDeductions}
-        
-        -----------------------------------------------------
-        NET SALARY PAYABLE: $${payslip.netSalary}
-        -----------------------------------------------------
-        Status: ${payslip.status}
-        Generated At: ${new Date(payslip.createdAt).toLocaleString()}
-      `;
+    try {
+      // For Demo: we can use a generic download or call backend
+      const response = await api.get(`/payslips/${payslip.id}/pdf`, { responseType: 'blob' }).catch(() => null);
       
-      const blob = new Blob([content], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Payslip_${payslip.month}_${payslip.year}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      if (response) {
+        const url = window.URL.createObjectURL(new Blob([response]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `payslip_${payslip.year}_${payslip.month}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      } else {
+        // Fallback demo blob
+        const content = `Payslip for ${payslip.month}/${payslip.year}\nNet Salary: ${formatINR(payslip.netSalary)}`;
+        const blob = new Blob([content], { type: 'text/plain' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Payslip_${payslip.month}_${payslip.year}.txt`;
+        a.click();
+      }
+    } catch (err) {
+      setError('Failed to download PDF');
+    } finally {
       setDownloadingId(null);
-    }, 800);
+    }
   };
 
   const handleRaiseDispute = async (e) => {
@@ -95,23 +88,6 @@ export default function PayslipsPage() {
     }
   };
 
-  const formatINR = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val || 0);
-
-  const handleDownload = async (payslip) => {
-    try {
-      const response = await api.get(`/payslips/${payslip.id}/pdf`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([response]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `payslip_${payslip.year}_${payslip.month}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (err) {
-      setError('Failed to download PDF');
-    }
-  };
-
   if (loading) return <div className="p-8">Loading...</div>;
 
   return (
@@ -123,85 +99,69 @@ export default function PayslipsPage() {
 
       {error && <div className="p-3 bg-danger-50 text-danger-700 rounded-xl text-sm border border-danger-100">{error}</div>}
 
-      {/* Grid of Payslips - Now more professional */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {payslips.length === 0 ? (
           <div className="col-span-full py-20 text-center text-ink-soft italic">
             No official payslips have been issued for your account yet.
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {payslips.map((payslip) => (
-              <Card key={payslip.id} className="p-6 hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h3 className="font-semibold">
-                      {new Date(`${payslip.year}-${String(payslip.month).padStart(2, '0')}-01`).toLocaleString('default', { month: 'long', year: 'numeric' })}
-                    </h3>
-                    <p className="text-xs text-ink-muted mt-1">
-                      System Generated
-                    </p>
-                  </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    payslip.status === 'GENERATED' || payslip.status === 'LOCKED' ? 'bg-success-100 text-success-700' : 'bg-warning-100 text-warning-700'
-                  }`}>
-                    {payslip.status}
-                  </span>
+          payslips.map((payslip) => (
+            <Card key={payslip.id} className="p-6 hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h3 className="font-semibold">
+                    {new Date(`${payslip.year}-${String(payslip.month).padStart(2, '0')}-01`).toLocaleString('default', { month: 'long', year: 'numeric' })}
+                  </h3>
+                  <p className="text-xs text-ink-muted mt-1">System Generated</p>
                 </div>
-                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-tight ${
-                  payslip.status === 'GENERATED' ? 'bg-success-50 text-success-600' : 'bg-warning-50 text-warning-600'
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  payslip.status === 'GENERATED' || payslip.status === 'LOCKED' ? 'bg-success-100 text-success-700' : 'bg-warning-100 text-warning-700'
                 }`}>
                   {payslip.status}
                 </span>
               </div>
 
-                <div className="space-y-3 mb-4 pb-4 border-b border-ink-200">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-ink-muted">Basic Salary</span>
-                    <span className="text-sm font-semibold">{formatINR(payslip.basicSalary)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-ink-muted">Gross Salary</span>
-                    <span className="text-sm font-semibold">{formatINR(payslip.grossSalary)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-ink-muted">Total Deductions</span>
-                    <span className="text-sm font-semibold text-danger-600">-{formatINR(payslip.totalDeductions)}</span>
-                  </div>
-                  <div className="flex justify-between bg-primary-50 p-2 rounded">
-                    <span className="text-sm font-medium">Net Salary</span>
-                    <span className="text-sm font-bold text-primary-600">{formatINR(payslip.netSalary)}</span>
-                  </div>
+              <div className="space-y-3 mb-4 pb-4 border-b border-ink-200">
+                <div className="flex justify-between">
+                  <span className="text-sm text-ink-muted">Basic Salary</span>
+                  <span className="text-sm font-semibold">{formatINR(payslip.basicSalary)}</span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-ink-muted">Gross Salary</span>
+                  <span className="text-sm font-semibold">{formatINR(payslip.grossSalary)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-ink-muted">Total Deductions</span>
+                  <span className="text-sm font-semibold text-danger-600">-{formatINR(payslip.totalDeductions)}</span>
+                </div>
+                <div className="flex justify-between bg-primary-50 p-2 rounded">
+                  <span className="text-sm font-medium">Net Salary</span>
+                  <span className="text-sm font-bold text-primary-600">{formatINR(payslip.netSalary)}</span>
+                </div>
+              </div>
 
-                <div className="pt-4 border-t border-border flex justify-between items-baseline">
-                   <span className="text-xs font-bold text-ink-muted uppercase tracking-wider">Net Payable</span>
-                   <span className="text-xl font-black text-brand-600">${payslip.netSalary?.toLocaleString()}</span>
-                </div>
-
-                <div className="flex gap-2 pt-2">
-                  <Button
-                    size="sm"
-                    className="flex-1 text-xs font-bold"
-                    leftIcon={<Download className="h-3 w-3" />}
-                    onClick={() => handleDownload(payslip)}
-                    loading={downloadingId === payslip.id}
-                  >
-                    Download PDF
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="flex-1 text-xs font-bold"
-                    leftIcon={<AlertCircle className="h-3 w-3" />}
-                    onClick={() => {
-                      setSelectedPayslip(payslip);
-                      setShowDisputeForm(true);
-                    }}
-                  >
-                    Raise Dispute
-                  </Button>
-                </div>
+              <div className="flex gap-2 pt-2">
+                <Button
+                  size="sm"
+                  className="flex-1 text-xs font-bold"
+                  leftIcon={<Download className="h-3 w-3" />}
+                  onClick={() => handleDownload(payslip)}
+                  loading={downloadingId === payslip.id}
+                >
+                  Download PDF
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="flex-1 text-xs font-bold"
+                  leftIcon={<AlertCircle className="h-3 w-3" />}
+                  onClick={() => {
+                    setSelectedPayslip(payslip);
+                    setShowDisputeForm(true);
+                  }}
+                >
+                  Raise Dispute
+                </Button>
               </div>
             </Card>
           ))

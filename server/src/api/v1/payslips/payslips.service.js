@@ -76,4 +76,51 @@ async function getById(payslipId) {
   });
 }
 
-module.exports = { getEmployeePayslips, getOwnPayslip, listAll, getById };
+async function getDraft(employeeId, month) {
+  const employee = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    include: { user: { select: { name: true, email: true } } },
+  });
+  if (!employee) {
+    const err = new Error('Employee not found');
+    err.status = 404;
+    throw err;
+  }
+
+  const [year, monthNum] = month.split('-').map(Number);
+
+  return {
+    employeeId,
+    month: monthNum,
+    year,
+    status: 'DRAFT',
+    employee,
+    paidDays: 0,
+    lopDays: 0,
+    basicSalary: 0,
+    grossSalary: 0,
+    totalDeductions: 0,
+    netSalary: 0,
+    earnings: [],
+    deductions: []
+  };
+}
+
+async function validate(id, userId) {
+  return prisma.payslip.update({
+    where: { id },
+    data: { 
+      status: 'GENERATED',
+      createdById: userId
+    }
+  });
+}
+
+async function cancel(id) {
+  return prisma.payslip.update({
+    where: { id },
+    data: { status: 'CANCELLED' }
+  });
+}
+
+module.exports = { getEmployeePayslips, getOwnPayslip, listAll, getById, getDraft, validate, cancel };
