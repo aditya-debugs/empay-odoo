@@ -262,13 +262,13 @@ export default function EmployeeDashboard() {
 
       {/* Report Issue Modal */}
       {showDisputeForm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in p-4">
-          <Card className="max-w-md w-full p-6 shadow-2xl">
+        <div className="fixed inset-0 bg-ink/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <Card className="max-w-md w-full p-6 shadow-2xl border-none animate-in zoom-in duration-200">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 bg-danger-50 rounded-lg text-danger-600">
                 <AlertCircle className="h-6 w-6" />
               </div>
-              <h3 className="text-lg font-bold text-gray-900">Report Payroll Issue</h3>
+              <h3 className="text-lg font-bold text-ink">Report Payroll Issue</h3>
             </div>
             <p className="text-sm text-gray-600 mb-6">
               Reporting for <strong>{dashboard?.lastPayslip?.month}/{dashboard?.lastPayslip?.year}</strong>.
@@ -302,6 +302,13 @@ export default function EmployeeDashboard() {
                   onClick={() => { setShowDisputeForm(false); setDisputeReason(''); }}
                 >
                   Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 font-bold shadow-lg"
+                  loading={submitting}
+                >
+                  Submit Report
                 </Button>
               </div>
             </form>

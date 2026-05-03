@@ -3,14 +3,8 @@ generator client {
 }
 
 datasource db {
-<<<<<<< HEAD
   provider = "postgresql"
   url      = "postgresql://postgres.rdnllksxoaeokmkwdape:Ashpikachu%401641@aws-1-ap-south-1.pooler.supabase.com:5432/postgres"
-=======
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
->>>>>>> fb961cd46d7db047df6cf548737fea137f2aedcf
 }
 
 model User {
@@ -71,11 +65,13 @@ model Employee {
   bankIfsc         String?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
+  designation      String?
   attendance       Attendance[]
   user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   leaves           Leave[]
   leaveAllocations LeaveAllocation[]
   payslips         Payslip[]
+  payroll          Payroll[]
 
   @@index([department])
   @@index([status])
@@ -233,11 +229,39 @@ model PayslipDispute {
 }
 
 model AttendanceLog {
-  id           String     @id
+  id           String     @id @default(uuid())
   attendanceId String
   type         LogType
   timestamp    DateTime   @default(now())
   Attendance   Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+}
+
+model Payroll {
+  id              String        @id @default(uuid())
+  employeeId      String
+  month           String // Format: YYYY-MM
+  status          PayrollStatus @default(PENDING)
+  workingDays     Int           @default(0)
+  presentDays     Int           @default(0)
+  lopDays         Decimal       @default(0) @db.Decimal(5, 2)
+  perDaySalary    Decimal       @default(0) @db.Decimal(12, 2)
+  basicSalary     Decimal       @default(0) @db.Decimal(12, 2)
+  lopDeduction    Decimal       @default(0) @db.Decimal(12, 2)
+  overtimeBonus   Decimal       @default(0) @db.Decimal(12, 2)
+  grossSalary     Decimal       @default(0) @db.Decimal(12, 2)
+  pfDeduction     Decimal       @default(0) @db.Decimal(12, 2)
+  tdsDeduction    Decimal       @default(0) @db.Decimal(12, 2)
+  professionalTax Decimal       @default(0) @db.Decimal(12, 2)
+  totalDeductions Decimal       @default(0) @db.Decimal(12, 2)
+  netSalary       Decimal       @default(0) @db.Decimal(12, 2)
+  cappedAtZero    Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  employee        Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, month], name: "employeeId_month")
+  @@index([month])
+  @@index([status])
 }
 
 enum UserRole {
@@ -317,319 +341,14 @@ enum DisputeRoute {
   HR
 }
 
-// ============================================
-// Auth & Identity
-// ============================================
-
-// Admin uses `email` to sign in. HR / Payroll / Employee use auto-generated `loginId`.
-// `email` is always populated (used for password reset / communications).
-model User {
-  id                 String   @id @default(uuid())
-  email              String   @unique
-  loginId            String?  @unique
-  passwordHash       String
-  name               String
-  role               UserRole
-  companyName        String?
-  phone              String?
-  mustChangePassword Boolean  @default(false)
-  isActive           Boolean  @default(true)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-
-  employee         Employee?
-  approvedLeaves   Leave[]          @relation("LeaveApprover")
-  raisedDisputes   PayslipDispute[] @relation("DisputeRaiser")
-  resolvedDisputes PayslipDispute[] @relation("DisputeResolver")
-  createdPayslips  Payslip[]        @relation("PayslipCreator")
-
-  @@index([role])
-}
-
-// ============================================
-// Employee profile (1-to-1 with User for non-admin roles)
-// ============================================
-
-model Employee {
-  id     String @id @default(uuid())
-  userId String @unique
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  firstName      String
-  lastName       String
-  phone          String?
-  personalEmail  String?
-  personalPhone  String?
-  gender         Gender?
-  department     String?
-  position       String?
-  joinDate       DateTime
-  dob            DateTime?
-  employmentType EmploymentType @default(FULL_TIME)
-  status         EmployeeStatus @default(ACTIVE)
-  avatarUrl      String?
-
-  // Career & Bio
-  resumeUrl    String?
-  skills       String[] @default([])
-  certificates String[] @default([])
-  aboutMe      String?
-
-  // Salary structure
-  basicSalary      Decimal  @db.Decimal(12, 2)
-  hra              Decimal? @db.Decimal(12, 2)
-  conveyance       Decimal? @db.Decimal(12, 2)
-  specialAllowance Decimal? @db.Decimal(12, 2)
-  otherAllowance   Decimal? @db.Decimal(12, 2)
-  pfEnabled        Boolean  @default(true)
-  pfPercent        Decimal? @db.Decimal(5, 2)
-  professionalTax  Decimal? @db.Decimal(8, 2)
-
-  // Statutory IDs (legal payslip requirements)
-  pan     String?
-  aadhaar String?
-
-  // Bank details (employee can self-edit per task list)
-  bankName      String?
-  bankBranch    String?
-  bankAccountNo String?
-  bankIfsc      String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  attendance       Attendance[]
-  leaves           Leave[]
-  leaveAllocations LeaveAllocation[]
-  payslips         Payslip[]
-
-  @@index([department])
-  @@index([status])
-}
-
-// ============================================
-// Org-wide settings (singleton — one row)
-// ============================================
-
-model OrgSettings {
-  id String @id @default(uuid())
-
-  // Company
-  companyName    String  @default("EmPay")
-  companyAddress String?
-  cin            String?
-  logoUrl        String?
-
-  // Financial / payroll period
-  fyStartMonth        Int    @default(4) // April
-  payDay              Int    @default(28)
-  workingDaysPerMonth Int    @default(26)
-  workingDaysPerWeek  Int    @default(5)
-  weeklyOff           String @default("SAT_SUN") // SAT_SUN | SUN_ONLY
-
-  // HRA
-  isMetro            Boolean @default(false)
-  metroHraPercent    Decimal @default(50) @db.Decimal(5, 2)
-  nonMetroHraPercent Decimal @default(40) @db.Decimal(5, 2)
-
-  // Default allowances (used when employee record is missing the field)
-  conveyanceDefault Decimal @default(1600) @db.Decimal(10, 2)
-  medicalDefault    Decimal @default(1250) @db.Decimal(10, 2)
-
-  // PF
-  pfEnabled         Boolean @default(true)
-  pfBasicThreshold  Decimal @default(15000) @db.Decimal(12, 2)
-  pfEmployeePercent Decimal @default(12) @db.Decimal(5, 2)
-  pfEmployerPercent Decimal @default(12) @db.Decimal(5, 2)
-
-  // ESIC
-  esicEnabled         Boolean @default(true)
-  esicGrossThreshold  Decimal @default(21000) @db.Decimal(12, 2)
-  esicEmployeePercent Decimal @default(0.75) @db.Decimal(5, 4)
-  esicEmployerPercent Decimal @default(3.25) @db.Decimal(5, 4)
-
-  // Professional tax
-  profTaxState String @default("MAHARASHTRA")
-
-  // Attendance policy
-  fullDayMinHours      Decimal @default(8) @db.Decimal(4, 2)
-  halfDayMinHours      Decimal @default(4) @db.Decimal(4, 2)
-  graceMinutes         Int     @default(15)
-  fullDayCheckInBefore String  @default("10:00")
-  halfDayCheckInBefore String  @default("11:00")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// ============================================
-// Attendance
-// ============================================
-
-model Attendance {
-  id         String   @id @default(uuid())
-  employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-
-  date        DateTime         @db.Date
-  checkIn     DateTime?
-  checkOut    DateTime?
-  hoursWorked Decimal?         @db.Decimal(10, 6)
-  status      AttendanceStatus
-  notes       String?
-
-  logs         AttendanceLog[]
-
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
-
-  regularization AttendanceRegularization?
-
-  @@unique([employeeId, date])
-  @@index([date])
-}
-
-model AttendanceLog {
-  id           String      @id @default(uuid())
-  attendanceId String
-  attendance   Attendance  @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
-  
-  type         LogType
-  timestamp    DateTime    @default(now())
+enum PayrollStatus {
+  PENDING
+  PROCESSED
+  LOCKED
+  CANCELLED
 }
 
 enum LogType {
   IN
   OUT
 }
-<<<<<<< HEAD
-=======
-
-model AttendanceRegularization {
-  id           String     @id @default(uuid())
-  attendanceId String     @unique
-  attendance   Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
-
-  reason       String
-  status       RegularizationStatus @default(PENDING)
-  reviewedById String?
-  reviewedAt   DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// ============================================
-// Leave (Time Off)
-// ============================================
-
-model LeaveAllocation {
-  id         String   @id @default(uuid())
-  employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-
-  type           LeaveType
-  year           Int
-  totalDays      Decimal   @db.Decimal(5, 2)
-  usedDays       Decimal   @default(0) @db.Decimal(5, 2)
-  carriedForward Decimal   @default(0) @db.Decimal(5, 2)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([employeeId, type, year])
-}
-
-model Leave {
-  id         String   @id @default(uuid())
-  employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-
-  type      LeaveType
-  startDate DateTime    @db.Date
-  endDate   DateTime    @db.Date
-  days      Decimal     @db.Decimal(5, 2)
-  reason    String
-  status    LeaveStatus @default(PENDING)
-
-  approvedById String?
-  approvedBy   User?     @relation("LeaveApprover", fields: [approvedById], references: [id])
-  approvedAt   DateTime?
-  reviewNote   String?
-
-  attachmentUrl String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([status])
-  @@index([startDate])
-}
-
-// ============================================
-// Payroll — Payslip & Disputes
-// (Payroll Officer module owner: extend fields as you implement the calculation engine)
-// ============================================
-
-model Payslip {
-  id         String   @id @default(uuid())
-  employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-
-  month   Int // 1-12
-  year    Int
-  version Int @default(1)
-
-  workingDays Int?
-  paidDays    Decimal? @db.Decimal(5, 2)
-  lopDays     Decimal? @db.Decimal(5, 2)
-
-  basicSalary     Decimal @db.Decimal(12, 2)
-  grossSalary     Decimal @db.Decimal(12, 2)
-  totalDeductions Decimal @db.Decimal(12, 2)
-  netSalary       Decimal @db.Decimal(12, 2)
-  cappedAtZero    Boolean @default(false)
-
-  // Detailed line items — extend in your slice
-  earnings   Json? // [{ label, amount }]
-  deductions Json? // [{ label, amount }]
-
-  status PayslipStatus @default(DRAFT)
-  pdfUrl String?
-
-  createdById String?
-  createdBy   User?   @relation("PayslipCreator", fields: [createdById], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  disputes PayslipDispute[]
-
-  @@unique([employeeId, month, year, version])
-  @@index([month, year])
-}
-
-model PayslipDispute {
-  id        String  @id @default(uuid())
-  payslipId String
-  payslip   Payslip @relation(fields: [payslipId], references: [id], onDelete: Cascade)
-
-  raisedById String
-  raisedBy   User   @relation("DisputeRaiser", fields: [raisedById], references: [id])
-  reason     String
-
-  status       DisputeStatus @default(OPEN)
-  routedTo     DisputeRoute  @default(PAYROLL)
-  resolution   String?
-  resolvedById String?
-  resolvedBy   User?         @relation("DisputeResolver", fields: [resolvedById], references: [id])
-  resolvedAt   DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([status])
-  @@index([routedTo])
-}
-
->>>>>>> fb961cd46d7db047df6cf548737fea137f2aedcf

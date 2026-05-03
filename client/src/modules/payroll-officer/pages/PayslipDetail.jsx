@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card } from '../../../features/ui';
 import api from '../../../services/api';
-import { downloadPayslipPdf } from '../../../utils/payslipPdf';
-import { Lock, ChevronLeft } from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { Lock } from 'lucide-react';
 
 export default function PayslipDetail() {
   const { id } = useParams();

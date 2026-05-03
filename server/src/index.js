@@ -1,4 +1,3 @@
-// Trigger restart
 const express = require('express');
 const cors = require('cors');
 const env = require('./config/env');
@@ -18,13 +17,22 @@ app.use(cors({ origin: corsOrigin, credentials: true }));
 app.use(express.json());
 app.use('/uploads', express.static('uploads'));
 
-// Liveness probe (no DB) — for load balancers / uptime checks
+// Debug log for CORS
+console.log(`[CORS] Configuring with origin: ${env.clientUrl}`);
+
+app.use(cors({ 
+  origin: env.clientUrl.includes(',') ? env.clientUrl.split(',') : env.clientUrl, 
+  credentials: true 
+}));
+
+app.use(express.json());
+
+// Liveness probe
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
 app.use('/api/v1', apiV1);
 
-// Centralised error handler — controllers call next(err) with optional err.status
-// eslint-disable-next-line no-unused-vars
+// Centralised error handler
 app.use((err, _req, res, _next) => {
   const status = err.status || 500;
   if (status >= 500) console.error(err);
@@ -33,7 +41,6 @@ app.use((err, _req, res, _next) => {
 
 const server = app.listen(env.port, async () => {
   console.log(`[empay] server listening on http://localhost:${env.port} (${env.nodeEnv})`);
-  // Self-heal: re-create a default admin if the DB has been wiped.
   await ensureBootstrapAdmin();
 });
 

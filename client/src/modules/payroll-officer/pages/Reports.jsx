@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Card, Input } from '../../../features/ui';
+import { Card } from '../../../features/ui';
 import { useAuth } from '../../../features/auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../../../services/api';
@@ -11,15 +11,20 @@ const TABS = [
   { id: 'ytd', label: 'YTD Report' }
 ];
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTHS_LIST = [
+  { value: 1, label: 'January' }, { value: 2, label: 'February' }, { value: 3, label: 'March' },
+  { value: 4, label: 'April' }, { value: 5, label: 'May' }, { value: 6, label: 'June' },
+  { value: 7, label: 'July' }, { value: 8, label: 'August' }, { value: 9, label: 'September' },
+  { value: 10, label: 'October' }, { value: 11, label: 'November' }, { value: 12, label: 'December' }
+];
 
 export default function Reports() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState('payroll');
-  const [month, setMonth] = useState(() => new Date().toISOString().substring(0, 7));
-  const [year, setYear] = useState(() => new Date().getFullYear().toString());
+  const [month, setMonth] = useState(new Date().getMonth() + 1);
+  const [year, setYear] = useState(new Date().getFullYear());
   const [employeeId, setEmployeeId] = useState('');
   
   const [data, setData] = useState(null);
@@ -29,8 +34,6 @@ export default function Reports() {
   useEffect(() => {
     if (user?.role === 'EMPLOYEE') {
       navigate('/payroll/payslips', { replace: true });
-    } else if (user?.role === 'HR_OFFICER') {
-      navigate('/dashboard', { replace: true });
     }
   }, [user, navigate]);
 
@@ -41,382 +44,172 @@ export default function Reports() {
   const fetchReport = async () => {
     setLoading(true);
     setError(null);
-    setData(null);
     try {
-      let url = `/reports/${activeTab}?`;
-      if (activeTab === 'ytd') {
-        url += `year=${year}`;
-        if (employeeId) url += `&employeeId=${employeeId}`;
-      } else {
-        url += `month=${month}`;
-      }
+      let url = `/reports/${activeTab}?year=${year}`;
+      if (activeTab !== 'ytd') url += `&month=${month}`;
+      if (activeTab === 'ytd' && employeeId) url += `&employeeId=${employeeId}`;
+      
       const res = await api.get(url);
-      setData(res);
+      setData(res || []);
     } catch (err) {
-      setError(err.message || 'Failed to load report');
+      setError(err.message || 'Failed to fetch report');
+      setData([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleTabChange = (tabId) => {
-    setActiveTab(tabId);
-    setData(null);
-    setError(null);
-  };
-
-  const formatINR = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val || 0);
-
-  const exportCSV = () => {
-    if (!data || data.length === 0) return;
-    
-    let csvContent = "";
-    
-    if (activeTab === 'payroll') {
-      csvContent += "Employee,Basic,Gross,Total Deductions,Net,Status\n";
-      data.forEach(r => {
-        const name = `${r.employee?.firstName} ${r.employee?.lastName}`;
-        csvContent += `"${name}",${r.basicSalary},${r.grossSalary},${r.totalDeductions},${r.netSalary},${r.status}\n`;
-      });
-    } else if (activeTab === 'pf') {
-      csvContent += "Employee,Basic Salary,PF (12%),Month\n";
-      data.forEach(r => {
-        const name = `${r.employee?.firstName} ${r.employee?.lastName}`;
-        const mStr = r.year ? `${r.year}-${String(r.month).padStart(2,'0')}` : r.month;
-        csvContent += `"${name}",${r.basicSalary},${r.pfDeduction},${mStr}\n`;
-      });
-    } else if (activeTab === 'prof-tax') {
-      csvContent += "Employee,Gross Salary,PT Amount,Month\n";
-      data.forEach(r => {
-        const name = `${r.employee?.firstName} ${r.employee?.lastName}`;
-        const mStr = r.year ? `${r.year}-${String(r.month).padStart(2,'0')}` : r.month;
-        csvContent += `"${name}",${r.grossSalary},${r.professionalTax},${mStr}\n`;
-      });
-    } else if (activeTab === 'ytd') {
-      csvContent += "Employee," + MONTHS.join(',') + ",Annual Total\n";
-      const grouped = getGroupedYtd();
-      grouped.forEach(r => {
-        const monthCols = MONTHS.map((_, i) => r.months[i + 1] || 0).join(',');
-        csvContent += `"${r.employeeName}",${monthCols},${r.annualTotal}\n`;
-      });
-    }
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `${activeTab}_report.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const formatINR = (val) => {
+    const num = typeof val === 'object' && val?.d ? Number(val.d.join('')) : Number(val || 0); // Handle Prisma Decimal
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(num);
   };
 
   const exportPDF = () => {
-    if (!data) return;
-    const title = TABS.find(t => t.id === activeTab)?.label || 'Report';
-    const period = activeTab === 'ytd' ? `Year: ${year}` : `Month: ${month}`;
-    const fmtPDF = (val) => '₹' + Number(val || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+    if (!data || data.length === 0) return;
+    const doc = new jsPDF('l', 'mm', 'a4');
+    doc.setFontSize(18);
+    doc.text(`EmPay - ${TABS.find(t => t.id === activeTab)?.label}`, 14, 20);
+    doc.setFontSize(10);
+    doc.text(`Period: ${MONTHS_LIST.find(m => m.value === month)?.label} ${year}`, 14, 28);
 
-    let tableHtml = '';
+    let head = [], body = [];
     if (activeTab === 'payroll') {
-      tableHtml = `<table><thead><tr><th>Employee</th><th>Basic</th><th>Gross</th><th>Deductions</th><th>Net</th><th>Status</th></tr></thead><tbody>
-        ${data.map(r => `<tr><td>${r.employee?.firstName} ${r.employee?.lastName}</td><td>${fmtPDF(r.basicSalary)}</td><td>${fmtPDF(r.grossSalary)}</td><td>${fmtPDF(r.totalDeductions)}</td><td>${fmtPDF(r.netSalary)}</td><td>${r.status}</td></tr>`).join('')}
-        </tbody></table>`;
+      head = [['Employee', 'Gross Salary', 'Deductions', 'Net Salary', 'Status']];
+      body = data.map(r => [`${r.employee?.firstName} ${r.employee?.lastName}`, formatINR(r.grossSalary), formatINR(r.totalDeductions), formatINR(r.netSalary), r.status]);
     } else if (activeTab === 'pf') {
-      tableHtml = `<table><thead><tr><th>Employee</th><th>Basic Salary</th><th>PF Deduction</th><th>Month</th></tr></thead><tbody>
-        ${data.map(r => `<tr><td>${r.employee?.firstName} ${r.employee?.lastName}</td><td>${fmtPDF(r.basicSalary)}</td><td>${fmtPDF(r.pfDeduction)}</td><td>${r.year}-${String(r.month).padStart(2,'0')}</td></tr>`).join('')}
-        </tbody></table>`;
+      head = [['Employee', 'PF Amount', 'Aadhaar']];
+      body = data.map(r => [r.employee, formatINR(r.pfAmount), r.aadhaar || '-']);
     } else if (activeTab === 'prof-tax') {
-      tableHtml = `<table><thead><tr><th>Employee</th><th>Gross Salary</th><th>Prof. Tax</th><th>Month</th></tr></thead><tbody>
-        ${data.map(r => `<tr><td>${r.employee?.firstName} ${r.employee?.lastName}</td><td>${fmtPDF(r.grossSalary)}</td><td>${fmtPDF(r.professionalTax)}</td><td>${r.year}-${String(r.month).padStart(2,'0')}</td></tr>`).join('')}
-        </tbody></table>`;
+      head = [['Employee', 'PT Amount']];
+      body = data.map(r => [r.employee, formatINR(r.ptAmount)]);
     } else if (activeTab === 'ytd') {
-      const cols = [1,2,3,4,5,6,7,8,9,10,11,12];
-      tableHtml = `<table><thead><tr><th>Employee</th>${MONTHS.map(m=>`<th>${m}</th>`).join('')}<th>Total</th></tr></thead><tbody>
-        ${groupedYtd.map(row => `<tr><td>${row.employeeName}</td>${cols.map(m=>`<td>${row.months[m] ? fmtPDF(row.months[m]) : '-'}</td>`).join('')}<td>${fmtPDF(row.annualTotal)}</td></tr>`).join('')}
-        </tbody></table>`;
+      head = [['Employee', 'YTD Gross', 'YTD Net']];
+      body = data.map(r => [r.employee, formatINR(r.ytdGross), formatINR(r.ytdNet)]);
     }
 
-    const win = window.open('', '_blank');
-    win.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
-      <style>body{font-family:sans-serif;padding:20px}h1{font-size:20px}p{font-size:12px;color:#555}
-      table{width:100%;border-collapse:collapse;margin-top:16px;font-size:11px}
-      th{background:#0f4c3a;color:#fff;padding:6px 8px;text-align:left}
-      td{padding:5px 8px;border-bottom:1px solid #eee}tr:nth-child(even){background:#f9f9f9}
-      @media print{button{display:none}}</style></head>
-      <body><h1>EmPay — ${title}</h1><p>${period}</p>${tableHtml}
-      <script>window.onload=()=>window.print();<\/script></body></html>`);
-    win.document.close();
+    autoTable(doc, { startY: 35, head, body, theme: 'grid', headStyles: { fillColor: [40, 40, 40] } });
+    doc.save(`Report_${activeTab}_${month}_${year}.pdf`);
   };
-
-  const getGroupedYtd = () => {
-    if (activeTab !== 'ytd' || !data) return [];
-    const grouped = {};
-    data.forEach(row => {
-      const empId = row.employeeId;
-      if (!grouped[empId]) {
-        grouped[empId] = {
-          employeeName: `${row.employee?.firstName} ${row.employee?.lastName}`,
-          months: {},
-          annualTotal: 0
-        };
-      }
-      // row.month is an integer (1-12) from prisma.payslip
-      const monthNum = typeof row.month === 'string' ? parseInt(row.month.split('-')[1] || row.month, 10) : row.month;
-      grouped[empId].months[monthNum] = Number(row.netSalary || 0);
-      grouped[empId].annualTotal += Number(row.netSalary || 0);
-    });
-    return Object.values(grouped);
-  };
-
-  // Aggregates
-  let sumGross = 0, sumDed = 0, sumNet = 0, sumPf = 0, sumPt = 0;
-  if (data && activeTab === 'payroll') {
-    data.forEach(r => { sumGross += r.grossSalary; sumDed += r.totalDeductions; sumNet += r.netSalary; });
-  } else if (data && activeTab === 'pf') {
-    data.forEach(r => { sumPf += r.pfDeduction; });
-  } else if (data && activeTab === 'prof-tax') {
-    data.forEach(r => { sumPt += r.professionalTax; });
-  }
-
-  const groupedYtd = getGroupedYtd();
 
   return (
-    <div className="px-8 py-8 animate-fade-in space-y-6">
-      
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight text-ink">Payroll Reports</h1>
-        <p className="mt-1 text-sm text-ink-muted">Generate and export statutory and compliance reports</p>
+    <div className="p-8 space-y-6 animate-in fade-in duration-500">
+      <div className="flex justify-between items-end">
+        <div>
+          <h1 className="text-4xl font-black text-gray-900 tracking-tighter">STATUTORY REPORTS</h1>
+          <p className="text-gray-500 font-medium">Compliance oversight and financial summaries</p>
+        </div>
+        {data && data.length > 0 && (
+          <button onClick={exportPDF} className="bg-gray-900 text-white px-6 py-2 rounded-xl font-bold hover:bg-black transition shadow-lg">EXPORT PDF</button>
+        )}
       </div>
 
-      {/* Tabs */}
-      <div className="flex space-x-1 border-b border-border">
+      <div className="flex bg-gray-100 p-1 rounded-2xl w-fit border border-gray-200">
         {TABS.map(tab => (
           <button
             key={tab.id}
-            onClick={() => handleTabChange(tab.id)}
-            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === tab.id 
-                ? 'border-brand-600 text-brand-600' 
-                : 'border-transparent text-ink-muted hover:text-ink-muted hover:border-border-strong'
+            onClick={() => setActiveTab(tab.id)}
+            className={`px-6 py-2.5 rounded-xl text-sm font-black transition-all ${
+              activeTab === tab.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            {tab.label}
+            {tab.label.toUpperCase()}
           </button>
         ))}
       </div>
 
-      {/* Shared Filters */}
-      <Card className="p-6 bg-surface-muted border border-border">
-        <div className="flex flex-col sm:flex-row gap-4 items-end">
-          {activeTab === 'ytd' ? (
-            <>
-              <div className="flex flex-col">
-                <label className="text-xs font-semibold text-ink-muted mb-1 uppercase">Select Year</label>
-                <input 
-                  type="number" 
-                  value={year}
-                  onChange={e => setYear(e.target.value)}
-                  className="border border-border-strong rounded px-3 py-2 outline-none focus:border-brand-500"
-                />
-              </div>
-              <div className="flex flex-col flex-1 max-w-xs">
-                <label className="text-xs font-semibold text-ink-muted mb-1 uppercase">Employee ID (Optional)</label>
-                <input 
-                  type="text" 
-                  value={employeeId}
-                  onChange={e => setEmployeeId(e.target.value)}
-                  placeholder="e.g. EMP-1234"
-                  className="border border-border-strong rounded px-3 py-2 outline-none focus:border-brand-500"
-                />
-              </div>
-            </>
-          ) : (
-            <div className="flex flex-col">
-              <label className="text-xs font-semibold text-ink-muted mb-1 uppercase">Select Month</label>
-              <input 
-                type="month" 
-                value={month}
-                onChange={e => setMonth(e.target.value)}
-                className="border border-border-strong rounded px-3 py-2 outline-none focus:border-brand-500"
-              />
-            </div>
-          )}
-          
-          <button 
-            onClick={fetchReport}
-            disabled={loading}
-            className="px-6 py-2 bg-ink text-white rounded font-medium hover:bg-ink transition disabled:opacity-50"
+      <Card className="p-6 grid grid-cols-1 md:grid-cols-4 gap-6 items-end bg-white border-gray-100 shadow-xl rounded-3xl">
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Month</label>
+          <select 
+            value={month} 
+            onChange={e => setMonth(parseInt(e.target.value))}
+            className="w-full h-12 bg-gray-50 border-none rounded-2xl px-4 text-sm font-bold text-gray-900 focus:ring-2 focus:ring-gray-200 transition-all cursor-pointer"
           >
-            {loading ? 'Loading...' : 'Load Report'}
-          </button>
+            {MONTHS_LIST.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+          </select>
         </div>
-        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Year</label>
+          <select 
+            value={year} 
+            onChange={e => setYear(parseInt(e.target.value))}
+            className="w-full h-12 bg-gray-50 border-none rounded-2xl px-4 text-sm font-bold text-gray-900 focus:ring-2 focus:ring-gray-200 transition-all cursor-pointer"
+          >
+            {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
+        <div className="md:col-span-2">
+           <button 
+             onClick={fetchReport}
+             disabled={loading}
+             className="w-full h-12 bg-emerald-600 text-white rounded-2xl font-black tracking-widest hover:bg-emerald-700 transition-all active:scale-95 disabled:opacity-50 shadow-emerald-200 shadow-lg"
+           >
+             {loading ? 'GENERATING...' : 'REFRESH DATA'}
+           </button>
+        </div>
       </Card>
 
-      {/* Tables */}
-      {data && (
-        <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
-            
-            {activeTab === 'payroll' && (
-              <table className="min-w-full divide-y divide-gray-200 text-left">
-                <thead className="bg-surface-muted">
-                  <tr>
-                    <th className="px-6 py-3 text-xs font-medium text-ink-muted uppercase">Employee</th>
-                    <th className="px-6 py-3 text-xs font-medium text-ink-muted uppercase">Basic</th>
-                    <th className="px-6 py-3 text-xs font-medium text-ink-muted uppercase">Gross</th>
-                    <th className="px-6 py-3 text-xs font-medium text-ink-muted uppercase">Total Deductions</th>
-                    <th className="px-6 py-3 text-xs font-medium text-ink-muted uppercase">Net</th>
-                    <th className="px-6 py-3 text-xs font-medium text-ink-muted uppercase">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {data.map(r => (
-                    <tr key={r.id} className="hover:bg-surface-muted">
-                      <td className="px-6 py-3 text-sm font-medium text-ink">{r.employee?.firstName} {r.employee?.lastName}</td>
-                      <td className="px-6 py-3 text-sm text-ink-muted">{formatINR(r.basicSalary)}</td>
-                      <td className="px-6 py-3 text-sm text-ink-muted">{formatINR(r.grossSalary)}</td>
-                      <td className="px-6 py-3 text-sm text-ink-muted">{formatINR(r.totalDeductions)}</td>
-                      <td className="px-6 py-3 text-sm font-bold text-ink">{formatINR(r.netSalary)}</td>
-                      <td className="px-6 py-3 text-sm"><span className="bg-surface-muted text-ink px-2 py-0.5 rounded text-xs">{r.status}</span></td>
-                    </tr>
-                  ))}
-                  {data.length === 0 && <tr><td colSpan="6" className="p-8 text-center text-ink-muted">No records found.</td></tr>}
-                </tbody>
-                {data.length > 0 && (
-                  <tfoot className="bg-surface-muted font-bold border-t-2 border-border">
-                    <tr>
-                      <td className="px-6 py-4">TOTAL</td>
-                      <td className="px-6 py-4">-</td>
-                      <td className="px-6 py-4 text-ink">{formatINR(sumGross)}</td>
-                      <td className="px-6 py-4 text-red-600">{formatINR(sumDed)}</td>
-                      <td className="px-6 py-4 text-green-700">{formatINR(sumNet)}</td>
-                      <td className="px-6 py-4">-</td>
-                    </tr>
-                  </tfoot>
-                )}
-              </table>
-            )}
+      {error && <div className="p-4 bg-red-50 text-red-600 rounded-2xl border border-red-100 font-bold text-center italic">⚠ {error}</div>}
 
-            {activeTab === 'pf' && (
-              <table className="min-w-full divide-y divide-gray-200 text-left">
-                <thead className="bg-surface-muted">
-                  <tr>
-                    <th className="px-6 py-3 text-xs font-medium text-ink-muted uppercase">Employee</th>
-                    <th className="px-6 py-3 text-xs font-medium text-ink-muted uppercase">Basic Salary</th>
-                    <th className="px-6 py-3 text-xs font-medium text-ink-muted uppercase">PF (12%)</th>
-                    <th className="px-6 py-3 text-xs font-medium text-ink-muted uppercase">Month</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {data.map((r, i) => (
-                    <tr key={i} className="hover:bg-surface-muted">
-                      <td className="px-6 py-3 text-sm font-medium text-ink">{r.employee?.firstName} {r.employee?.lastName}</td>
-                      <td className="px-6 py-3 text-sm text-ink-muted">{formatINR(r.basicSalary)}</td>
-                      <td className="px-6 py-3 text-sm text-red-600 font-medium">{formatINR(r.pfDeduction)}</td>
-                      <td className="px-6 py-3 text-sm text-ink-muted">{r.year ? `${r.year}-${String(r.month).padStart(2,'0')}` : r.month}</td>
-                    </tr>
-                  ))}
-                  {data.length === 0 && <tr><td colSpan="4" className="p-8 text-center text-ink-muted">No records found.</td></tr>}
-                </tbody>
-                {data.length > 0 && (
-                  <tfoot className="bg-surface-muted font-bold border-t-2 border-border">
-                    <tr>
-                      <td colSpan="2" className="px-6 py-4 text-right">TOTAL LIABILITY:</td>
-                      <td className="px-6 py-4 text-red-700 text-lg">{formatINR(sumPf)}</td>
-                      <td className="px-6 py-4"></td>
-                    </tr>
-                  </tfoot>
-                )}
-              </table>
-            )}
-
-            {activeTab === 'prof-tax' && (
-              <table className="min-w-full divide-y divide-gray-200 text-left">
-                <thead className="bg-surface-muted">
-                  <tr>
-                    <th className="px-6 py-3 text-xs font-medium text-ink-muted uppercase">Employee</th>
-                    <th className="px-6 py-3 text-xs font-medium text-ink-muted uppercase">Gross Salary</th>
-                    <th className="px-6 py-3 text-xs font-medium text-ink-muted uppercase">PT Amount</th>
-                    <th className="px-6 py-3 text-xs font-medium text-ink-muted uppercase">Month</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {data.map((r, i) => (
-                    <tr key={i} className="hover:bg-surface-muted">
-                      <td className="px-6 py-3 text-sm font-medium text-ink">{r.employee?.firstName} {r.employee?.lastName}</td>
-                      <td className="px-6 py-3 text-sm text-ink-muted">{formatINR(r.grossSalary)}</td>
-                      <td className="px-6 py-3 text-sm text-red-600 font-medium">{formatINR(r.professionalTax)}</td>
-                      <td className="px-6 py-3 text-sm text-ink-muted">{r.year ? `${r.year}-${String(r.month).padStart(2,'0')}` : r.month}</td>
-                    </tr>
-                  ))}
-                  {data.length === 0 && <tr><td colSpan="4" className="p-8 text-center text-ink-muted">No records found.</td></tr>}
-                </tbody>
-                {data.length > 0 && (
-                  <tfoot className="bg-surface-muted font-bold border-t-2 border-border">
-                    <tr>
-                      <td colSpan="2" className="px-6 py-4 text-right">TOTAL PT LIABILITY:</td>
-                      <td className="px-6 py-4 text-red-700 text-lg">{formatINR(sumPt)}</td>
-                      <td className="px-6 py-4"></td>
-                    </tr>
-                  </tfoot>
-                )}
-              </table>
-            )}
-
-            {activeTab === 'ytd' && (
-              <table className="min-w-full divide-y divide-gray-200 text-left text-sm">
-                <thead className="bg-surface-muted">
-                  <tr>
-                    <th className="px-4 py-3 font-medium text-ink-muted uppercase">Employee</th>
-                    {MONTHS.map(m => <th key={m} className="px-3 py-3 font-medium text-ink-muted uppercase text-center">{m}</th>)}
-                    <th className="px-4 py-3 font-bold text-ink uppercase text-right">Annual Total</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {groupedYtd.map((r, i) => (
-                    <tr key={i} className="hover:bg-surface-muted">
-                      <td className="px-4 py-3 font-medium text-ink whitespace-nowrap">{r.employeeName}</td>
-                      {MONTHS.map((_, mIdx) => (
-                        <td key={mIdx} className="px-3 py-3 text-ink-muted text-center border-l border-border">
-                          {r.months[mIdx + 1] ? formatINR(r.months[mIdx + 1]) : '-'}
+      <Card className="overflow-hidden border-gray-100 shadow-2xl rounded-3xl bg-white">
+        <div className="overflow-x-auto">
+          {data && data.length > 0 ? (
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-gray-50 border-b border-gray-100">
+                <tr>
+                  <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Employee</th>
+                  {activeTab === 'payroll' && (
+                    <>
+                      <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Gross</th>
+                      <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Net Payable</th>
+                      <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Status</th>
+                    </>
+                  )}
+                  {activeTab === 'pf' && <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">PF Amount</th>}
+                  {activeTab === 'prof-tax' && <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">PT Amount</th>}
+                  {activeTab === 'ytd' && <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Annual Net</th>}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {data.map((r, i) => (
+                  <tr key={i} className="hover:bg-gray-50/50 transition-colors group">
+                    <td className="px-8 py-6">
+                      <div className="font-bold text-gray-900">{activeTab === 'payroll' ? `${r.employee?.firstName} ${r.employee?.lastName}` : r.employee}</div>
+                      <div className="text-[10px] text-gray-400 font-black uppercase tracking-tighter">{activeTab === 'payroll' ? r.employee?.department : 'Personnel'}</div>
+                    </td>
+                    {activeTab === 'payroll' && (
+                      <>
+                        <td className="px-8 py-6 text-gray-500 font-bold">{formatINR(r.grossSalary)}</td>
+                        <td className="px-8 py-6 text-gray-900 font-black text-lg">{formatINR(r.netSalary)}</td>
+                        <td className="px-8 py-6 text-center">
+                          <span className={`px-3 py-1 rounded-full text-[9px] font-black tracking-widest ${
+                            r.status === 'GENERATED' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'
+                          }`}>
+                            {r.status}
+                          </span>
                         </td>
-                      ))}
-                      <td className="px-4 py-3 font-bold text-brand-700 text-right bg-brand-50/30">
-                        {formatINR(r.annualTotal)}
-                      </td>
-                    </tr>
-                  ))}
-                  {groupedYtd.length === 0 && <tr><td colSpan="14" className="p-8 text-center text-ink-muted">No records found.</td></tr>}
-                </tbody>
-              </table>
-            )}
-
-          </div>
-
-          {/* Export Footer */}
-          {((activeTab !== 'ytd' && data.length > 0) || (activeTab === 'ytd' && groupedYtd.length > 0)) && (
-            <div className="px-6 py-4 bg-surface-muted border-t border-border flex justify-end gap-3">
-              <button 
-                onClick={exportCSV}
-                className="px-4 py-2 border border-border-strong text-ink-muted font-medium rounded hover:bg-white transition flex items-center gap-2 text-sm"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                Export CSV
-              </button>
-              <button 
-                onClick={exportPDF}
-                className="px-4 py-2 bg-brand-600 text-white font-medium rounded hover:bg-brand-700 transition flex items-center gap-2 text-sm"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
-                Export PDF
-              </button>
+                      </>
+                    )}
+                    {activeTab === 'pf' && <td className="px-8 py-6 text-right font-black text-red-600 text-lg">{formatINR(r.pfAmount)}</td>}
+                    {activeTab === 'prof-tax' && <td className="px-8 py-6 text-right font-black text-red-600 text-lg">{formatINR(r.ptAmount)}</td>}
+                    {activeTab === 'ytd' && <td className="px-8 py-6 text-right font-black text-emerald-700 text-lg">{formatINR(r.ytdNet)}</td>}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="py-32 text-center flex flex-col items-center justify-center space-y-4">
+              <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center">
+                <svg className="w-10 h-10 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-gray-400">NO RECORDS FOUND</h3>
+                <p className="text-sm text-gray-400 font-medium italic">Try adjusting the period or generating payroll first.</p>
+              </div>
             </div>
           )}
-        </Card>
-      )}
-
+        </div>
+      </Card>
     </div>
   );
 }

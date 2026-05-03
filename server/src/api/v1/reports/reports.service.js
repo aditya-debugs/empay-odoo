@@ -89,7 +89,7 @@ exports.getHeadcountReport = async () => {
 };
 
 exports.getPfReport = async ({ year, month }) => {
-  const where = { status: 'GENERATED' };
+  const where = { status: { in: ['GENERATED', 'COMPUTED'] } };
   if (year) where.year = parseInt(year, 10);
   if (month) where.month = parseInt(month, 10);
 
@@ -102,10 +102,16 @@ exports.getPfReport = async ({ year, month }) => {
   
   return payslips.map(p => {
     let pfAmount = 0;
-    if (Array.isArray(p.deductions)) {
-      const pfDeduction = p.deductions.find(d => d.label === 'PF' || d.label === 'Provident Fund');
-      if (pfDeduction) pfAmount = pfDeduction.amount;
-    }
+    const earnings = Array.isArray(p.earnings) ? p.earnings : [];
+    const deductions = Array.isArray(p.deductions) ? p.deductions : [];
+    
+    // Look in deductions for PF
+    const pfDeduction = deductions.find(d => 
+      d.label?.toUpperCase().includes('PF') || 
+      d.label?.toUpperCase().includes('PROVIDENT FUND')
+    );
+    if (pfDeduction) pfAmount = pfDeduction.amount;
+    
     return {
       employee: `${p.employee.firstName} ${p.employee.lastName}`,
       month: p.month,
@@ -117,7 +123,7 @@ exports.getPfReport = async ({ year, month }) => {
 };
 
 exports.getProfTaxReport = async ({ year, month }) => {
-  const where = { status: 'GENERATED' };
+  const where = { status: { in: ['GENERATED', 'COMPUTED'] } };
   if (year) where.year = parseInt(year, 10);
   if (month) where.month = parseInt(month, 10);
 
@@ -130,10 +136,13 @@ exports.getProfTaxReport = async ({ year, month }) => {
   
   return payslips.map(p => {
     let ptAmount = 0;
-    if (Array.isArray(p.deductions)) {
-      const ptDeduction = p.deductions.find(d => d.label === 'PT' || d.label === 'Professional Tax');
-      if (ptDeduction) ptAmount = ptDeduction.amount;
-    }
+    const deductions = Array.isArray(p.deductions) ? p.deductions : [];
+    const ptDeduction = deductions.find(d => 
+      d.label?.toUpperCase().includes('PT') || 
+      d.label?.toUpperCase().includes('PROFESSIONAL TAX')
+    );
+    if (ptDeduction) ptAmount = ptDeduction.amount;
+    
     return {
       employee: `${p.employee.firstName} ${p.employee.lastName}`,
       month: p.month,
@@ -145,7 +154,7 @@ exports.getProfTaxReport = async ({ year, month }) => {
 
 exports.getYtdReport = async ({ year, employeeId }) => {
   const currentYear = year ? parseInt(year, 10) : new Date().getFullYear();
-  const where = { year: currentYear, status: 'GENERATED' };
+  const where = { year: currentYear, status: { in: ['GENERATED', 'COMPUTED'] } };
   if (employeeId) where.employeeId = employeeId;
 
   const runs = await prisma.payslip.groupBy({

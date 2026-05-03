@@ -12,7 +12,14 @@ router.get('/me', requireRole('EMPLOYEE'), ctrl.getPayslips);
 // Admin / Payroll — list all
 router.get('/', requireRole('ADMIN', 'PAYROLL_OFFICER'), ctrl.listAll);
 
-// Single payslip — controller enforces self vs admin/payroll
+// Special endpoints
+router.get('/draft', requireRole('ADMIN', 'PAYROLL_OFFICER'), ctrl.getDraft);
+router.post('/new', requireRole('ADMIN', 'PAYROLL_OFFICER'), ctrl.createIndividual);
+
+// Single payslip actions
 router.get('/:id', ctrl.getPayslipDetail);
+router.post('/:id/compute', requireRole('ADMIN', 'PAYROLL_OFFICER'), ctrl.compute);
+router.post('/:id/validate', requireRole('ADMIN', 'PAYROLL_OFFICER'), ctrl.validate);
+router.patch('/:id/cancel', requireRole('ADMIN', 'PAYROLL_OFFICER'), ctrl.cancel);
 
 module.exports = router;

@@ -35,12 +35,36 @@ export default function PayslipsPage() {
     }
   };
 
-  const handleDownload = (payslip) => {
+  const formatINR = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val || 0);
+
+  const handleDownload = async (payslip) => {
     setDownloadingId(payslip.id);
     try {
-      downloadPayslipPdf(payslip);
+      // For Demo: we can use a generic download or call backend
+      const response = await api.get(`/payslips/${payslip.id}/pdf`, { responseType: 'blob' }).catch(() => null);
+      
+      if (response) {
+        const url = window.URL.createObjectURL(new Blob([response]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `payslip_${payslip.year}_${payslip.month}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      } else {
+        // Fallback demo blob
+        const content = `Payslip for ${payslip.month}/${payslip.year}\nNet Salary: ${formatINR(payslip.netSalary)}`;
+        const blob = new Blob([content], { type: 'text/plain' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Payslip_${payslip.month}_${payslip.year}.txt`;
+        a.click();
+      }
+    } catch (err) {
+      setError('Failed to download PDF');
     } finally {
-      setTimeout(() => setDownloadingId(null), 800);
+      setDownloadingId(null);
     }
   };
 
@@ -63,9 +87,6 @@ export default function PayslipsPage() {
       setSubmitting(false);
     }
   };
-
-  const formatINR = (val) =>
-    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val || 0);
 
   if (loading) return <div className="p-8">Loading...</div>;
 
@@ -93,16 +114,14 @@ export default function PayslipsPage() {
                   </h3>
                   <p className="text-xs text-ink-muted mt-1">System Generated</p>
                 </div>
-                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-tight ${
-                  payslip.status === 'GENERATED' || payslip.status === 'LOCKED'
-                    ? 'bg-success-50 text-success-600'
-                    : 'bg-warning-50 text-warning-600'
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  payslip.status === 'GENERATED' || payslip.status === 'LOCKED' ? 'bg-success-100 text-success-700' : 'bg-warning-100 text-warning-700'
                 }`}>
                   {payslip.status}
                 </span>
               </div>
 
-              <div className="space-y-3 mb-4">
+              <div className="space-y-3 mb-4 pb-4 border-b border-ink-200">
                 <div className="flex justify-between">
                   <span className="text-sm text-ink-muted">Basic Salary</span>
                   <span className="text-sm font-semibold">{formatINR(payslip.basicSalary)}</span>
@@ -115,14 +134,13 @@ export default function PayslipsPage() {
                   <span className="text-sm text-ink-muted">Total Deductions</span>
                   <span className="text-sm font-semibold text-danger-600">-{formatINR(payslip.totalDeductions)}</span>
                 </div>
+                <div className="flex justify-between bg-primary-50 p-2 rounded">
+                  <span className="text-sm font-medium">Net Salary</span>
+                  <span className="text-sm font-bold text-primary-600">{formatINR(payslip.netSalary)}</span>
+                </div>
               </div>
 
-              <div className="pt-4 border-t border-border flex justify-between items-baseline mb-4">
-                <span className="text-xs font-bold text-ink-muted uppercase tracking-wider">Net Payable</span>
-                <span className="text-xl font-black text-brand-600">₹{Number(payslip.netSalary || 0).toLocaleString('en-IN')}</span>
-              </div>
-
-              <div className="flex gap-2">
+              <div className="flex gap-2 pt-2">
                 <Button
                   size="sm"
                   className="flex-1 text-xs font-bold"
