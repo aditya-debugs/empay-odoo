@@ -133,10 +133,12 @@ const getReport = async (type, filters, user) => {
 
   const empInclude = { employee: { select: { id: true, firstName: true, lastName: true } } };
 
-  const buildMonthWhere = (monthStr) => {
-    if (!monthStr) return {};
-    const [yearStr, mStr] = monthStr.split('-');
-    return { month: parseInt(mStr, 10), year: parseInt(yearStr, 10) };
+  // filters.month and filters.year arrive as separate query params (integers as strings)
+  const buildMonthWhere = () => {
+    const where = {};
+    if (filters.year)  where.year  = parseInt(filters.year,  10);
+    if (filters.month) where.month = parseInt(filters.month, 10);
+    return where;
   };
 
   const dedupeLatest = (rows) => {
@@ -150,39 +152,47 @@ const getReport = async (type, filters, user) => {
 
   if (type === 'payroll') {
     const rows = await prisma.payslip.findMany({
-      where: buildMonthWhere(filters.month),
+      where: buildMonthWhere(),
       include: empInclude,
       orderBy: [{ year: 'desc' }, { month: 'desc' }, { version: 'desc' }]
     });
     return dedupeLatest(rows);
   } else if (type === 'pf') {
     const rows = await prisma.payslip.findMany({
-      where: buildMonthWhere(filters.month),
+      where: buildMonthWhere(),
       include: empInclude,
       orderBy: [{ year: 'desc' }, { month: 'desc' }, { version: 'desc' }]
     });
-    return dedupeLatest(rows).map(r => ({
-      employeeId: r.employeeId,
-      employee: r.employee,
-      basicSalary: r.basicSalary,
-      pfDeduction: r.deductions?.find(d => d.label?.toLowerCase().includes('pf'))?.amount ?? 0,
-      month: r.month,
-      year: r.year
-    }));
+    return dedupeLatest(rows).map(r => {
+      const deductions = Array.isArray(r.deductions) ? r.deductions : [];
+      const pfEntry = deductions.find(d => d.label?.toLowerCase().includes('pf') || d.label?.toLowerCase().includes('provident'));
+      return {
+        employeeId: r.employeeId,
+        employee: r.employee,
+        basicSalary: Number(r.basicSalary || 0),
+        pfAmount: Number(pfEntry?.amount ?? 0),
+        month: r.month,
+        year: r.year,
+      };
+    });
   } else if (type === 'prof-tax') {
     const rows = await prisma.payslip.findMany({
-      where: buildMonthWhere(filters.month),
+      where: buildMonthWhere(),
       include: empInclude,
       orderBy: [{ year: 'desc' }, { month: 'desc' }, { version: 'desc' }]
     });
-    return dedupeLatest(rows).map(r => ({
-      employeeId: r.employeeId,
-      employee: r.employee,
-      grossSalary: r.grossSalary,
-      professionalTax: r.deductions?.find(d => d.label?.toLowerCase().includes('professional'))?.amount ?? 0,
-      month: r.month,
-      year: r.year
-    }));
+    return dedupeLatest(rows).map(r => {
+      const deductions = Array.isArray(r.deductions) ? r.deductions : [];
+      const ptEntry = deductions.find(d => d.label?.toLowerCase().includes('professional') || d.label?.toLowerCase().includes('pt'));
+      return {
+        employeeId: r.employeeId,
+        employee: r.employee,
+        grossSalary: Number(r.grossSalary || 0),
+        ptAmount: Number(ptEntry?.amount ?? 0),
+        month: r.month,
+        year: r.year,
+      };
+    });
   } else if (type === 'ytd') {
     const whereClause = {};
     if (filters.employeeId) whereClause.employeeId = filters.employeeId;
@@ -192,7 +202,19 @@ const getReport = async (type, filters, user) => {
       include: empInclude,
       orderBy: [{ year: 'asc' }, { month: 'asc' }]
     });
-    return dedupeLatest(rows);
+    // For YTD, group by employee and sum net/gross across all months
+    const all = dedupeLatest(rows);
+    const empMap = {};
+    for (const r of all) {
+      const key = r.employeeId;
+      if (!empMap[key]) {
+        empMap[key] = { employeeId: key, employee: r.employee, ytdGross: 0, ytdNet: 0, ytdDeductions: 0 };
+      }
+      empMap[key].ytdGross      += Number(r.grossSalary   || 0);
+      empMap[key].ytdNet        += Number(r.netSalary     || 0);
+      empMap[key].ytdDeductions += Number(r.totalDeductions || 0);
+    }
+    return Object.values(empMap);
   }
   return [];
 };

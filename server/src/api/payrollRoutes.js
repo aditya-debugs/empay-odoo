@@ -22,11 +22,24 @@ router.get('/payroll/dashboard', async (req, res, next) => {
 });
 
 router.get('/payroll/preview', async (req, res, next) => {
-  try { res.json(await service.previewPayroll(req.query.month, req.user)); } catch (e) { next(e); }
+  try {
+    // Client sends ?month=05&year=2026 as separate params — build YYYY-MM string
+    const { month, year } = req.query;
+    if (!month || !year) return res.status(400).json({ error: 'month and year query params are required' });
+    const monthStr = `${year}-${String(month).padStart(2, '0')}`;
+    res.json(await service.previewPayroll(monthStr, req.user));
+  } catch (e) { next(e); }
 });
 
 router.post('/payroll/process', async (req, res, next) => {
-  try { res.json(await service.processPayroll(req.body.month, req.user)); } catch (e) { next(e); }
+  try {
+    // Body may send { month: 5, year: 2026 } (integers) or { month: "2026-05" }
+    const { month, year } = req.body;
+    const monthStr = (year && month && !String(month).includes('-'))
+      ? `${year}-${String(month).padStart(2, '0')}`
+      : String(month);
+    res.json(await service.processPayroll(monthStr, req.user));
+  } catch (e) { next(e); }
 });
 
 router.post('/payroll/process-individual', async (req, res, next) => {

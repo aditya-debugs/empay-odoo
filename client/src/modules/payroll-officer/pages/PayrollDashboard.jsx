@@ -31,6 +31,19 @@ export default function PayrollDashboard() {
     }
   }, [user, navigate]);
 
+  const fetchDashboard = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await api.get('/dashboard/payroll');
+      setData(result);
+    } catch (err) {
+      setError(err.message || 'Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchDashboard();
   }, []);
